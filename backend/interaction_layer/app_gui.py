@@ -4,7 +4,7 @@ from threading import Thread
 
 from stt_handler import transcribe_speech
 from mock_llm import generate_response  # Replace with your actual module
-# from tts_handler import speak_response  # Ready for future integration
+from tts_handler import speak_response  # Ready for future integration
 
 class InterviewApp:
     def __init__(self, root):
@@ -30,7 +30,6 @@ class InterviewApp:
         self.start_button.config(state=tk.DISABLED)
         thread = Thread(target=self.handle_transcription_and_response)
         thread.start()
-
     def handle_transcription_and_response(self):
         self.transcript_box.delete("1.0", tk.END)
         self.response_box.delete("1.0", tk.END)
@@ -45,9 +44,12 @@ class InterviewApp:
         bot_response = generate_response(user_text)
         self.response_box.insert(tk.END, bot_response)
 
-        # Step 4 (future): speak_response(bot_response)
+        # Step 4: Speak the response out loud
+        speak_response(bot_response)
 
         self.start_button.config(state=tk.NORMAL)
+
+
 
 if __name__ == "__main__":
     root = tk.Tk()
