@@ -152,13 +152,13 @@ def transcribe_speech():
     return transcriber.run_transcription()
 
 
-if __name__ == "__main__":
-    try:
-        final_transcript = transcribe_speech()
-        print("\n✅ Final Transcript:")
-        print(final_transcript)
-    except KeyboardInterrupt:
-        print("\n🛑 Transcription stopped by user.")
-    except Exception as e:  
-        print(f"❌ An error occurred: {e}")
-        raise e
+# if __name__ == "__main__":
+#     try:
+#         final_transcript = transcribe_speech()
+#         print("\n✅ Final Transcript:")
+#         print(final_transcript)
+#     except KeyboardInterrupt:
+#         print("\n🛑 Transcription stopped by user.")
+#     except Exception as e:  
+#         print(f"❌ An error occurred: {e}")
+#         raise e
