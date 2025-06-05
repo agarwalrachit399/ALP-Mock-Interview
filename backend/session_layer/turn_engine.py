@@ -1,21 +1,31 @@
 import json
 import random
 import time
-
 import sys
 import os
+import requests
+import logging
+import uuid
+
+# Setup logging
+logging.basicConfig(
+    filename="interview_log.txt",
+    filemode="a",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Ensure both layers are importable
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "interaction_layer"))
-
 from stt_handler import transcribe_speech
-from mock_llm import generate_response
 from tts_handler import TTSHandler
+from db_handler import MongoLogger
 
 # Constants
 SESSION_DURATION_LIMIT = 5 * 60  # in seconds
 MIN_LP_QUESTIONS = 3
 FOLLOW_UP_COUNT = 3
+LLM_ENDPOINT = "http://localhost:8000/generate-followup"  # Adjust if needed
 
 class TurnEngine:
     def __init__(self):
@@ -25,7 +35,9 @@ class TurnEngine:
 
         self.asked_principles = set()
         self.session_start_time = None
+        self.session_id = str(uuid.uuid4())
         self.tts = TTSHandler()
+        self.db_logger = MongoLogger()
 
     def time_remaining(self):
         return SESSION_DURATION_LIMIT - (time.time() - self.session_start_time)
@@ -38,10 +50,30 @@ class TurnEngine:
 
     def ask_question(self, text):
         print("Bot:", text)
+        logging.info(f"Bot asked: {text}")
         self.tts.speak(text)
+
+    def generate_followup(self, principle, question, user_input):
+        payload = {
+            "session_id": self.session_id,
+            "principle": principle,
+            "question": question,
+            "user_input": user_input
+        }
+        logging.info(f"Generating follow-up | Session ID: {self.session_id}, LP: {principle}, Q: {question}, A: {user_input}")
+        try:
+            response = requests.post(LLM_ENDPOINT, json=payload)
+            response.raise_for_status()
+            followup = response.json()["followup_question"]
+            logging.info(f"LLM Follow-up: {followup}")
+            return followup
+        except requests.exceptions.RequestException as e:
+            logging.error(f"❌ Error calling LLM microservice: {e}")
+            return "Can you elaborate further on that?"
 
     def start_interview(self):
         print("Interview started. Maximum duration: 60 minutes.")
+        logging.info("Interview session started")
         self.session_start_time = time.time()
         lp_asked = 0
 
@@ -53,28 +85,51 @@ class TurnEngine:
             self.asked_principles.add(lp)
             lp_questions = self.lp_questions[lp]
             main_question = random.choice(lp_questions)
+
             print(f"\n[Leadership Principle: {lp}]")
+            logging.info(f"Starting LP block: {lp}")
 
             # Ask main question
             self.ask_question(main_question)
-            user_answer = transcribe_speech()
+            main_answer = transcribe_speech()
+            logging.info(f"User response: {main_answer}")
 
-            # Follow-up loop
-            followup_prompt = f"The user said: '{user_answer}'. Ask a follow-up question to go deeper on the topic."
-            for _ in range(FOLLOW_UP_COUNT):
+            followup_questions = []
+            followup_answers = []
+            current_question = main_question
+            current_answer = main_answer
+
+            for i in range(FOLLOW_UP_COUNT):
                 if self.time_remaining() <= 0:
                     break
-                follow_up = generate_response(followup_prompt)
+
+                follow_up = self.generate_followup(
+                    principle=lp,
+                    question=current_question,
+                    user_input=current_answer
+                )
+
                 self.ask_question(follow_up)
                 user_answer = transcribe_speech()
-                followup_prompt = f"The user said: '{user_answer}'. Ask another follow-up question."
+                logging.info(f"User response to follow-up {i+1}: {user_answer}")
+                followup_questions.append(follow_up)
+                followup_answers.append(user_answer)
+
+                current_question = follow_up
+                current_answer = user_answer
+
+            followups_data = [
+                {"question": q, "answer": a} for q, a in zip(followup_questions, followup_answers)
+            ]
+            self.db_logger.log_lp_block(self.session_id, lp, main_question, main_answer, followups_data)
 
             lp_asked += 1
 
         print("\n✅ Interview session complete. Thank you!")
+        logging.info("Interview session completed")
         self.tts.speak("Your mock interview session is now complete. Thank you!")
 
 
 if __name__ == "__main__":
     engine = TurnEngine()
-    engine.start_interview() 
+    engine.start_interview()
