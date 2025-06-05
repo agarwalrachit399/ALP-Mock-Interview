@@ -53,7 +53,7 @@ class STTTranscriber:
         self.transcript_final = ""
         self.last_voice_time = time.time()
         self.silence_threshold = 0.01  # Adjust if needed
-        self.silence_duration = 2.0    # seconds
+        self.silence_duration = 10.0    # seconds
         self.silence_started = None
         self.stop_transcription = False
         self.ws = None  # to be set later
