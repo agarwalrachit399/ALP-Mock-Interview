@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 # Initialize your Gemini API key once
-API_KEY = os.getenv("GOOGLE_API_KEY")  # or set it directly here (not recommended)
+API_KEY = os.getenv("GEMINI_API_KEY")  # or set it directly here (not recommended)
 client = genai.Client(api_key=API_KEY )
 
 def gemini_llm(prompt: str) -> str:

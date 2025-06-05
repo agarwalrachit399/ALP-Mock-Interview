@@ -2,7 +2,7 @@
 import json
 import os 
 from typing import Optional, Dict
-from .llm_clients.gemini_client import gemini_llm
+from llm_clients.gemini_client import gemini_llm
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -42,23 +42,23 @@ Below is a conversation between an interviewer and a interviewee around a specif
 
 Instructions:
 
-1. Identify the **main Amazon Leadership Principle** that is demonstrated most strongly by the user. Confirm whether it aligns with the declared LP_type: "{lp_type}".
-2. List any **secondary Leadership Principles** that are indirectly or partially demonstrated.
-3. Provide a **score from 1 to 10** based on the following rubric:
+1. Identify the main Amazon Leadership Principle that is demonstrated most strongly by the user. Confirm whether it aligns with the declared LP type: "{lp_type}".
+2. List any secondary Leadership Principles that are indirectly or partially demonstrated.
+3. Provide a score from 1 to 10 based on the following rubric:
    - STAR Format clearly followed → 3 points
    - Story is precise and focused → 1 point
    - Response is not verbose or rambling → 1 point
    - Story is highly relevant to the initial question → 3 points
    - Follow-up answers sound natural and realistic, not made up → 2 points
-   -State where the marks were deducted.
+4.State where the marks were deducted.
 
-4. End your response with **2 concise lines describing areas of improvement** for the candidate to better reflect Amazon’s expectations.
+4. End your response with one para describing areas of improvement for the candidate to better reflect Amazon’s expectations.
 5. Dont bold anything
 Only use bullet points and short paragraphs for clarity. Format your response clearly under the following headings:
 - Main LP Detected
 - Secondary LPs Detected
 - Score (out of 10)
-- Areas for Improvement
+- Areas for Improvement(Descriptive)
 
 Here is the conversation:
 
