@@ -2,13 +2,9 @@
 import json
 import os 
 from typing import Optional, Dict
-from llm_clients.gemini_client import gemini_llm
+from .llm_clients.gemini_client import gemini_llm
 from dotenv import load_dotenv
 load_dotenv()
-
-
-
-
 
 
 def load_lp_conversation(lp_key: str, data_file='data.json') -> tuple[str, str]:
@@ -54,10 +50,10 @@ Instructions:
    - Response is not verbose or rambling → 1 point
    - Story is highly relevant to the initial question → 3 points
    - Follow-up answers sound natural and realistic, not made up → 2 points
-   -State where the marks were deducted
+   -State where the marks were deducted.
 
 4. End your response with **2 concise lines describing areas of improvement** for the candidate to better reflect Amazon’s expectations.
-
+5. Dont bold anything
 Only use bullet points and short paragraphs for clarity. Format your response clearly under the following headings:
 - Main LP Detected
 - Secondary LPs Detected
@@ -101,10 +97,10 @@ def analyze_lp(lp_key: str, llm_client, data_file='data.json') -> str:
 
 
 
-# Now you can call analyze_lp with Gemini
-if __name__ == "__main__":
-    lp_key = "lp1"  # Example key
-    response = analyze_lp(lp_key=lp_key, llm_client=gemini_llm, data_file='data.json')
-    print(response)
+# # Now you can call analyze_lp with Gemini
+# if __name__ == "__main__":
+#     lp_key = "lp1"  # Example key
+#     # response = analyze_lp(lp_key=lp_key, llm_client=gemini_llm, data_file='data.json')
+#     # print(response)
 
 

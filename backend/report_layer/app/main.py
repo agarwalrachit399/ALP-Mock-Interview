@@ -1,10 +1,9 @@
 from fastapi import FastAPI
-from app.routes import router
+from .routes import router
 
-app = FastAPI(title="Report Generator")
-
+app = FastAPI()
 app.include_router(router)
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+@app.get("/")
+def read_root():
+    return {"message": "Service is running"}
