@@ -36,7 +36,7 @@ def load_lp_conversation(lp_key: str, data_file='data.json') -> tuple[str, str]:
 # -------------------------------
 def build_prompt(conversation_text: str, lp_type: str) -> str:
     return f"""
-You are an expert Amazon behavioral interview evaluator.
+You are an expert who has 15 years of  working experience at Amazon and your task is to evalute a candiate critically to make sure only the best and genuine is hired at Amazon so evaluate accordingly.
 
 Below is a conversation between an interviewer and a interviewee around a specific Amazon Leadership Principle (LP). Your task is to analyze the candidate's response deeply and provide structured evaluation.
 
