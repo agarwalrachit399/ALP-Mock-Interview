@@ -20,7 +20,4 @@ def speak_response(text):
     return tts_handler.speak(text)
 
 
-tts = TTSHandler()
-tts.speak("Hello, this is a test of the text-to-speech system using Edge Engine.")
-
 

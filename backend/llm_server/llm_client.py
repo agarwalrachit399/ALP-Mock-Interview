@@ -45,9 +45,9 @@ class LLMClient:
 
     def generate_followup(self, principle, history):
         prompt = PromptBuilder.build_prompt(principle, history)
-        print(f"Generated Prompt: {prompt}")  # Debugging line to see the generated prompt
+        
 
-        response = client.models.generate_content(
+        response = client.models.generate_content_stream(
             model=self.model,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -59,4 +59,5 @@ class LLMClient:
                 temperature=0.7) 
         )
 
-        return response.text.strip()
+        for chunk in response:
+            yield chunk.text.strip()

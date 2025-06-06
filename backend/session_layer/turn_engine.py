@@ -23,8 +23,8 @@ from db_handler import MongoLogger
 
 # Constants
 SESSION_DURATION_LIMIT = 5 * 60  # in seconds
-MIN_LP_QUESTIONS = 3
-FOLLOW_UP_COUNT = 3
+MIN_LP_QUESTIONS = 1
+FOLLOW_UP_COUNT = 1
 LLM_ENDPOINT = "http://localhost:8000/generate-followup"  # Adjust if needed
 
 class TurnEngine:
@@ -60,16 +60,39 @@ class TurnEngine:
             "question": question,
             "user_input": user_input
         }
-        logging.info(f"Generating follow-up | Session ID: {self.session_id}, LP: {principle}, Q: {question}, A: {user_input}")
+
+        logging.info(f"Generating follow-up (streaming) | Session ID: {self.session_id}, LP: {principle}, Q: {question}, A: {user_input}")
+        
         try:
-            response = requests.post(LLM_ENDPOINT, json=payload)
+            response = requests.post(LLM_ENDPOINT, json=payload, stream=True)
             response.raise_for_status()
-            followup = response.json()["followup_question"]
-            logging.info(f"LLM Follow-up: {followup}")
-            return followup
+
+            followup_parts = []
+            buffer = ""
+
+            for chunk in response.iter_content(chunk_size=64, decode_unicode=True):
+                if not chunk.strip():
+                    continue
+
+                followup_parts.append(chunk)
+                buffer += chunk
+
+                if any(p in buffer for p in [".", "?", "!"]) and len(buffer) > 20:
+                    self.tts.speak(buffer.strip())
+                    buffer = ""
+
+            if buffer.strip():
+                self.tts.speak(buffer.strip())
+
+            followup = "".join(followup_parts).strip()
+            logging.info(f"LLM Follow-up (final): {followup}")
+            return followup  # still needed for DB log etc.
+
         except requests.exceptions.RequestException as e:
             logging.error(f"❌ Error calling LLM microservice: {e}")
+            self.tts.speak("Can you elaborate further on that?")
             return "Can you elaborate further on that?"
+
 
     def start_interview(self):
         print("Interview started. Maximum duration: 60 minutes.")
@@ -109,7 +132,7 @@ class TurnEngine:
                     user_input=current_answer
                 )
 
-                self.ask_question(follow_up)
+                # self.ask_question(follow_up)
                 user_answer = transcribe_speech()
                 logging.info(f"User response to follow-up {i+1}: {user_answer}")
                 followup_questions.append(follow_up)

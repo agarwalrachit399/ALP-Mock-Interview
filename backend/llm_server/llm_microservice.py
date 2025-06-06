@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from llm_client import LLMClient
 from session_memory_manager import SessionMemoryManager
@@ -31,9 +32,9 @@ async def generate_followup(data: FollowupRequest):
             memory_manager.add_followup(session_id, principle, question, user_input)
 
         history = memory_manager.get_history(session_id, principle)
-        followup = llm_client.generate_followup(principle, history)
+        generator = llm_client.generate_followup(principle, history)
 
-        return {"followup_question": followup}
+        return StreamingResponse(generator,media_type="text/sream")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM generation failed: {str(e)}")
