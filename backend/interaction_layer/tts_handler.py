@@ -8,10 +8,19 @@ class TTSHandler:
 
     def speak(self, text):
         self.tts_stream.feed(text)
-        self.tts_stream.play()
+        self.tts_stream.play_async()
+        try:
+            if self.tts_stream.play_thread is not None:
+                self.tts_stream.play_thread.join()
+        finally:
+            self.tts_stream.stop()
 
 def speak_response(text):
     tts_handler = TTSHandler()
     return tts_handler.speak(text)
+
+
+tts = TTSHandler()
+tts.speak("Hello, this is a test of the text-to-speech system using Edge Engine.")
 
 

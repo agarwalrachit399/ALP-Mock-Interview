@@ -12,13 +12,14 @@ from speechmatics.models import (
     ServerMessageType,
 )
 from httpx import HTTPStatusError
+import webrtcvad
 
 load_dotenv()
 
 API_KEY = os.getenv("SPEECHMATICS_API_KEY")
 LANGUAGE = "en"
 CONNECTION_URL = f"wss://eu2.rt.speechmatics.com/v2/{LANGUAGE}"
-CHUNK_SIZE = 1024
+CHUNK_SIZE = 960  # 30ms at 16kHz with 16-bit PCM (960 bytes)
 
 
 class AudioProcessor:
@@ -26,10 +27,9 @@ class AudioProcessor:
         self.wave_data = bytearray()
         self.read_offset = 0
         self.finished = False
-    
+
     def finish(self):
         self.finished = True
-
 
     async def read(self, chunk_size):
         while self.read_offset + chunk_size > len(self.wave_data):
@@ -42,23 +42,45 @@ class AudioProcessor:
         self.read_offset = new_offset
         return data
 
-
     def write_audio(self, data):
         self.wave_data.extend(data)
+
+
+class VADMonitor:
+    def __init__(self, sample_rate=16000):
+        self.vad = webrtcvad.Vad(3)
+        self.sample_rate = sample_rate
+        self.silence_start_time = None
+        self.speech_detected = False
+
+    def update(self, pcm_data):
+        try:
+            is_speech = self.vad.is_speech(pcm_data, self.sample_rate)
+        except webrtcvad.VadError:
+            is_speech = False
+
+        if is_speech:
+            self.speech_detected = True
+            self.silence_start_time = None
+        else:
+            if self.speech_detected:
+                if self.silence_start_time is None:
+                    self.silence_start_time = time.time()
+
+    def is_sustained_silence(self, duration):
+        if self.silence_start_time:
+            return (time.time() - self.silence_start_time) >= duration
+        return False
 
 
 class STTTranscriber:
     def __init__(self):
         self.audio_processor = AudioProcessor()
         self.transcript_final = ""
-        self.last_voice_time = time.time()
-        self.silence_threshold = 0.01  # Adjust if needed
-        self.silence_duration = 10.0    # seconds
-        self.silence_started = None
+        self.vad_monitor = VADMonitor()
         self.stop_transcription = False
         self.ws = None  # to be set later
-        
-
+        self.sample_rate = 16000
 
     def stream_callback(self, in_data, frame_count, time_info, status):
         if self.stop_transcription:
@@ -68,19 +90,21 @@ class STTTranscriber:
 
         self.audio_processor.write_audio(in_data)
 
-        # Volume detection
-        audio_np = np.frombuffer(in_data, dtype=np.float32)
-        volume = np.sqrt(np.mean(audio_np ** 2))
+        # Convert to int16 PCM for VAD
+        float_audio = np.frombuffer(in_data, dtype=np.float32)
+        int16_audio = np.clip(float_audio * 32768, -32768, 32767).astype(np.int16)
+        pcm_data = int16_audio.tobytes()
 
-        if volume > self.silence_threshold:
-            self.last_voice_time = time.time()
-            self.silence_started = None
-        elif time.time() - self.last_voice_time > self.silence_duration:
-            if self.silence_started is None:
-                self.silence_started = time.time()
-            elif time.time() - self.silence_started > 0.5:
-                print("🛑 Sustained silence. Preparing to stop...")
-                self.stop_transcription = True
+        frame_duration_ms = 30
+        frame_size = int(self.sample_rate * frame_duration_ms / 1000) * 2  # 2 bytes/sample
+
+        if len(pcm_data) >= frame_size:
+            frame = pcm_data[:frame_size]
+            self.vad_monitor.update(frame)
+
+        if self.vad_monitor.is_sustained_silence(4.0):
+            print("🛑 Sustained silence. Preparing to stop...")
+            self.stop_transcription = True
 
         return in_data, pyaudio.paContinue
 
@@ -97,12 +121,12 @@ class STTTranscriber:
         p = pyaudio.PyAudio()
         default_index = p.get_default_input_device_info()['index']
         rate = int(p.get_device_info_by_index(default_index)['defaultSampleRate'])
-        return default_index, rate
+        return default_index, self.sample_rate
 
     def get_microphone_stream(self, device_index, sample_rate):
         p = pyaudio.PyAudio()
         return p.open(
-            format=pyaudio.paFloat32,
+            format=pyaudio.paFloat32,  # For Speechmatics; convert to int16 for VAD only
             channels=1,
             rate=sample_rate,
             input=True,
@@ -134,7 +158,7 @@ class STTTranscriber:
         self.ws.add_event_handler(ServerMessageType.AddPartialTranscript, self.on_partial)
         self.ws.add_event_handler(ServerMessageType.AddTranscript, self.on_final)
 
-        print("🎤 Listening... Speak now (auto-stops on 2s silence)")
+        print("🎤 Listening... Speak now (auto-stops on VAD-confirmed 4s silence)")
 
         try:
             self.ws.run_synchronously(self.audio_processor, conf, audio_settings)
@@ -152,13 +176,13 @@ def transcribe_speech():
     return transcriber.run_transcription()
 
 
-# if __name__ == "__main__":
-#     try:
-#         final_transcript = transcribe_speech()
-#         print("\n✅ Final Transcript:")
-#         print(final_transcript)
-#     except KeyboardInterrupt:
-#         print("\n🛑 Transcription stopped by user.")
-#     except Exception as e:  
-#         print(f"❌ An error occurred: {e}")
-#         raise e
+if __name__ == "__main__":
+    try:
+        final_transcript = transcribe_speech()
+        print("\n✅ Final Transcript:")
+        print(final_transcript)
+    except KeyboardInterrupt:
+        print("\n🛑 Transcription stopped by user.")
+    except Exception as e:  
+        print(f"❌ An error occurred: {e}")
+        raise e
