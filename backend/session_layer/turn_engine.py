@@ -26,6 +26,7 @@ SESSION_DURATION_LIMIT = 5 * 60  # in seconds
 MIN_LP_QUESTIONS = 1
 FOLLOW_UP_COUNT = 1
 LLM_ENDPOINT = "http://localhost:8000/generate-followup"  # Adjust if needed
+MODERATION_ENDPOINT = "http://localhost:8100/moderate"
 
 class TurnEngine:
     def __init__(self):
@@ -53,6 +54,16 @@ class TurnEngine:
         logging.info(f"Bot asked: {text}")
         self.tts.speak(text)
 
+    def moderate_input(self, question, user_input):
+        try:
+            payload = {"question": question, "user_input": user_input}
+            response = requests.post(MODERATION_ENDPOINT, json=payload)
+            response.raise_for_status()
+            return response.json().get("status", "safe")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Moderation error: {e}")
+            return "safe"
+
     def generate_followup(self, principle, question, user_input):
         payload = {
             "session_id": self.session_id,
@@ -69,13 +80,19 @@ class TurnEngine:
 
             followup_parts = []
             buffer = ""
+            last_chunk = ""
 
             for chunk in response.iter_content(chunk_size=64, decode_unicode=True):
                 if not chunk.strip():
                     continue
 
+                # Fix 1: Add a space if needed between chunks
+                if last_chunk and not last_chunk[-1].isspace() and not chunk[0].isspace():
+                    chunk = " " + chunk
+
                 followup_parts.append(chunk)
                 buffer += chunk
+                last_chunk = chunk
 
                 if any(p in buffer for p in [".", "?", "!"]) and len(buffer) > 20:
                     self.tts.speak(buffer.strip())
@@ -86,7 +103,7 @@ class TurnEngine:
 
             followup = "".join(followup_parts).strip()
             logging.info(f"LLM Follow-up (final): {followup}")
-            return followup  # still needed for DB log etc.
+            return followup
 
         except requests.exceptions.RequestException as e:
             logging.error(f"❌ Error calling LLM microservice: {e}")
@@ -103,7 +120,7 @@ class TurnEngine:
         while self.time_remaining() > 0 and lp_asked < MIN_LP_QUESTIONS:
             lp = self.pick_new_lp()
             if not lp:
-                break  # All LPs exhausted
+                break
 
             self.asked_principles.add(lp)
             lp_questions = self.lp_questions[lp]
@@ -112,10 +129,21 @@ class TurnEngine:
             print(f"\n[Leadership Principle: {lp}]")
             logging.info(f"Starting LP block: {lp}")
 
-            # Ask main question
             self.ask_question(main_question)
-            main_answer = transcribe_speech()
-            logging.info(f"User response: {main_answer}")
+
+            while True:
+                main_answer = transcribe_speech()
+                moderation_status = self.moderate_input(main_question, main_answer)
+                logging.info(f"Moderation status: {moderation_status}")
+
+                if moderation_status == "abusive" or moderation_status == "malicious":
+                    self.tts.speak("Interview terminated due to inappropriate content.")
+                    logging.warning("Interview terminated due to abusive input.")
+                    return
+                elif moderation_status == "off_topic":
+                    self.tts.speak("Please try to answer the question related to your experience.")
+                else:
+                    break
 
             followup_questions = []
             followup_answers = []
@@ -132,9 +160,20 @@ class TurnEngine:
                     user_input=current_answer
                 )
 
-                # self.ask_question(follow_up)
-                user_answer = transcribe_speech()
-                logging.info(f"User response to follow-up {i+1}: {user_answer}")
+                while True:
+                    user_answer = transcribe_speech()
+                    moderation_status = self.moderate_input(follow_up, user_answer)
+                    logging.info(f"Moderation status (follow-up {i+1}): {moderation_status}")
+
+                    if moderation_status == "abusive" or moderation_status == "malicious":
+                        self.tts.speak("Interview terminated due to inappropriate content.")
+                        logging.warning("Interview terminated due to abusive input.")
+                        return
+                    elif moderation_status == "off_topic":
+                        self.tts.speak("Please answer the question based on your relevant experience.")
+                    else:
+                        break
+
                 followup_questions.append(follow_up)
                 followup_answers.append(user_answer)
 
