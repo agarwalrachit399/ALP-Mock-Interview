@@ -6,6 +6,7 @@ import os
 import requests
 import logging
 import uuid
+from intro import IntroHandler
 
 
 # Setup logging
@@ -40,6 +41,8 @@ class TurnEngine:
         self.session_id = str(uuid.uuid4())
         self.tts = TTSHandler()
         self.db_logger = MongoLogger()
+        self.intro_handler = IntroHandler()## intro 
+
        
 
     def time_remaining(self):
@@ -119,7 +122,7 @@ class TurnEngine:
             if self.time_remaining() <= 0:
                 break
 
-            transcript = transcribe_speech(stop_duration=4.0, max_wait=90)
+            transcript = transcribe_speech(stop_duration=4.0, max_wait=2)
             if transcript.strip():
                 return transcript
 
@@ -134,7 +137,8 @@ class TurnEngine:
         print("Interview started. Maximum duration: 60 minutes.")
         logging.info("Interview session started")
         self.session_start_time = time.time()
-        
+        # self.intro_handler.run_intro() #Intro
+
         lp_asked = 0
 
         while self.time_remaining() > 0 and lp_asked < MIN_LP_QUESTIONS:
@@ -150,21 +154,39 @@ class TurnEngine:
             logging.info(f"Starting LP block: {lp}")
 
             self.ask_question(main_question)
-            main_answer = self.wait_for_user_response(main_question)
+            while True:
+                main_answer = self.wait_for_user_response(main_question)
 
-            if not main_answer.strip():
-                self.tts.speak("Let's move on to the next topic.")
-                continue
+                if not main_answer.strip():
+                    self.tts.speak("Let's move on to the next topic.")
+                    break
 
-            moderation_status = self.moderate_input(main_question, main_answer)
-            logging.info(f"Moderation status: {moderation_status}")
+                moderation_status = self.moderate_input(main_question, main_answer)
+                logging.info(f"Moderation status: {moderation_status}")
 
-            if moderation_status in ["abusive", "malicious"]:
-                self.tts.speak("Interview terminated due to inappropriate content.")
-                logging.warning("Interview terminated due to abusive input.")
-                return
-            elif moderation_status == "off_topic":
-                self.tts.speak("Please try to answer the question related to your experience.")
+                if moderation_status in ["abusive", "malicious"]:
+                    self.tts.speak("Interview terminated due to inappropriate content.")
+                    logging.warning("Interview terminated due to abusive input.")
+                    return
+                elif moderation_status == "off_topic":
+                    self.tts.speak("Please try to answer the question related to your experience.")
+                elif moderation_status == "repeat":
+                    self.tts.speak("Sure, let me repeat the question.")
+                    self.ask_question(main_question)
+                    continue  # re-listen to user's input
+                elif moderation_status == "change":
+                    self.tts.speak(
+                        "Unfortunately, we can't change the question, "
+                        "but feel free to use any academic, co-curricular, or personal experiences to answer it to the best of your ability."
+                    )
+                    continue
+                elif moderation_status=="thinking":
+                    self.tts.speak("Sure please take a couple of minutes")
+                    # wait time logic
+                    pass
+
+                else:
+                    break
 
             followup_questions = []
             followup_answers = []
@@ -192,6 +214,19 @@ class TurnEngine:
                         return
                     elif moderation_status == "off_topic":
                         self.tts.speak("Please answer the question based on your relevant experience.")
+                    elif moderation_status == "repeat":
+                        self.tts.speak("Sure, let me repeat the question.")
+                        self.ask_question(main_question)
+                        continue  # re-listen to user's input
+                    elif moderation_status == "change":
+                        self.tts.speak(
+                            "Unfortunately, we can't change the question, "
+                            "but feel free to use any academic, co-curricular, or personal experiences to answer it to the best of your ability."
+                        )
+                        continue
+                    elif moderation_status=="thinking":
+                        continue
+
                     else:
                         break
 
