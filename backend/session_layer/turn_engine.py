@@ -7,6 +7,7 @@ import requests
 import logging
 import uuid
 
+
 # Setup logging
 logging.basicConfig(
     filename="interview_log.txt",
@@ -39,6 +40,7 @@ class TurnEngine:
         self.session_id = str(uuid.uuid4())
         self.tts = TTSHandler()
         self.db_logger = MongoLogger()
+       
 
     def time_remaining(self):
         return SESSION_DURATION_LIMIT - (time.time() - self.session_start_time)
@@ -115,6 +117,7 @@ class TurnEngine:
         print("Interview started. Maximum duration: 60 minutes.")
         logging.info("Interview session started")
         self.session_start_time = time.time()
+        
         lp_asked = 0
 
         while self.time_remaining() > 0 and lp_asked < MIN_LP_QUESTIONS:
@@ -142,6 +145,7 @@ class TurnEngine:
                     return
                 elif moderation_status == "off_topic":
                     self.tts.speak("Please try to answer the question related to your experience.")
+                
                 else:
                     break
 

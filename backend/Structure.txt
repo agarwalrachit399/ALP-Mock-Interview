@@ -1,0 +1,17 @@
+my-microservice/
+│
+├── app/
+│   ├── api/                 # Routes/controllers
+│   ├── services/            # Business logic
+│   ├── models/              # Pydantic or ORM models
+│   ├── schemas/             # Request/response schemas
+│   ├── db/                  # DB connection, session
+│   ├── core/                # Settings, config, utils
+│   └── main.py              # Entry point
+│
+├── tests/                   # Unit and integration tests
+├── Dockerfile
+├── docker-compose.yml       # For local orchestration
+├── .env
+├── requirements.txt / pyproject.toml
+└── README.md
