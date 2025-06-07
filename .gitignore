@@ -2,3 +2,4 @@ alp*/
 .DS_Store/
 interview_log.txt
 __pycache__/
+*.pdf

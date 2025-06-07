@@ -26,7 +26,7 @@ from db_handler import MongoLogger
 SESSION_DURATION_LIMIT = 5 * 60  # in seconds
 MIN_LP_QUESTIONS = 1
 FOLLOW_UP_COUNT = 1
-LLM_ENDPOINT = "http://localhost:8000/generate-followup"  # Adjust if needed
+LLM_ENDPOINT = "http://localhost:8000/generate-followup"
 MODERATION_ENDPOINT = "http://localhost:8100/moderate"
 
 class TurnEngine:
@@ -75,7 +75,7 @@ class TurnEngine:
         }
 
         logging.info(f"Generating follow-up (streaming) | Session ID: {self.session_id}, LP: {principle}, Q: {question}, A: {user_input}")
-        
+
         try:
             response = requests.post(LLM_ENDPOINT, json=payload, stream=True)
             response.raise_for_status()
@@ -88,7 +88,6 @@ class TurnEngine:
                 if not chunk.strip():
                     continue
 
-                # Fix 1: Add a space if needed between chunks
                 if last_chunk and not last_chunk[-1].isspace() and not chunk[0].isspace():
                     chunk = " " + chunk
 
@@ -112,6 +111,24 @@ class TurnEngine:
             self.tts.speak("Can you elaborate further on that?")
             return "Can you elaborate further on that?"
 
+    def wait_for_user_response(self, question):
+        total_attempts = 2  # 1 initial + 1 retry
+        print("Waiting for user to speak...")
+
+        for attempt in range(total_attempts):
+            if self.time_remaining() <= 0:
+                break
+
+            transcript = transcribe_speech(stop_duration=4.0, max_wait=90)
+            if transcript.strip():
+                return transcript
+
+            if attempt < total_attempts - 1:
+                logging.info(f"User did not respond. Attempt {attempt + 1} of {total_attempts - 1}.")
+                self.tts.speak("Please share your thoughts when you're ready.")
+
+        return ""
+
 
     def start_interview(self):
         print("Interview started. Maximum duration: 60 minutes.")
@@ -133,21 +150,21 @@ class TurnEngine:
             logging.info(f"Starting LP block: {lp}")
 
             self.ask_question(main_question)
+            main_answer = self.wait_for_user_response(main_question)
 
-            while True:
-                main_answer = transcribe_speech()
-                moderation_status = self.moderate_input(main_question, main_answer)
-                logging.info(f"Moderation status: {moderation_status}")
+            if not main_answer.strip():
+                self.tts.speak("Let's move on to the next topic.")
+                continue
 
-                if moderation_status == "abusive" or moderation_status == "malicious":
-                    self.tts.speak("Interview terminated due to inappropriate content.")
-                    logging.warning("Interview terminated due to abusive input.")
-                    return
-                elif moderation_status == "off_topic":
-                    self.tts.speak("Please try to answer the question related to your experience.")
-                
-                else:
-                    break
+            moderation_status = self.moderate_input(main_question, main_answer)
+            logging.info(f"Moderation status: {moderation_status}")
+
+            if moderation_status in ["abusive", "malicious"]:
+                self.tts.speak("Interview terminated due to inappropriate content.")
+                logging.warning("Interview terminated due to abusive input.")
+                return
+            elif moderation_status == "off_topic":
+                self.tts.speak("Please try to answer the question related to your experience.")
 
             followup_questions = []
             followup_answers = []
@@ -165,11 +182,11 @@ class TurnEngine:
                 )
 
                 while True:
-                    user_answer = transcribe_speech()
+                    user_answer = self.wait_for_user_response(follow_up)
                     moderation_status = self.moderate_input(follow_up, user_answer)
                     logging.info(f"Moderation status (follow-up {i+1}): {moderation_status}")
 
-                    if moderation_status == "abusive" or moderation_status == "malicious":
+                    if moderation_status in ["abusive", "malicious"]:
                         self.tts.speak("Interview terminated due to inappropriate content.")
                         logging.warning("Interview terminated due to abusive input.")
                         return
