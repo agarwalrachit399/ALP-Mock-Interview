@@ -117,7 +117,7 @@ class TurnEngine:
             if self.time_remaining() <= 0:
                 break
 
-            transcript = transcribe_speech(stop_duration=4.0, max_wait=90)
+            transcript = transcribe_speech(stop_duration=4.0, max_wait=2)
             if transcript.strip():
                 return transcript
 
@@ -147,21 +147,28 @@ class TurnEngine:
             logging.info(f"Starting LP block: {lp}")
 
             self.ask_question(main_question)
-            main_answer = self.wait_for_user_response(main_question)
+
+            while True:
+                main_answer = self.wait_for_user_response(main_question)
+                if not main_answer.strip():
+                    logging.info("Moving to next question due to empty response.")
+                    break
+
+                moderation_status = self.moderate_input(main_question, main_answer)
+                logging.info(f"Moderation status: {moderation_status}")
+
+                if moderation_status in ["abusive", "malicious"]:
+                    self.tts.speak("Interview terminated due to inappropriate content.")
+                    logging.warning("Interview terminated due to abusive input.")
+                    return
+                elif moderation_status == "off_topic":
+                    self.tts.speak("Please try to answer the question related to your experience.")
+                else:
+                    break
 
             if not main_answer.strip():
                 self.tts.speak("Let's move on to the next topic.")
                 continue
-
-            moderation_status = self.moderate_input(main_question, main_answer)
-            logging.info(f"Moderation status: {moderation_status}")
-
-            if moderation_status in ["abusive", "malicious"]:
-                self.tts.speak("Interview terminated due to inappropriate content.")
-                logging.warning("Interview terminated due to abusive input.")
-                return
-            elif moderation_status == "off_topic":
-                self.tts.speak("Please try to answer the question related to your experience.")
 
             followup_questions = []
             followup_answers = []
