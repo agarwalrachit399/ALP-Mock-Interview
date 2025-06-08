@@ -24,7 +24,7 @@ from tts_handler import TTSHandler
 from db_handler import MongoLogger
 
 # Constants
-SESSION_DURATION_LIMIT = 5 * 60  # in seconds
+SESSION_DURATION_LIMIT = 10 * 60  # in seconds
 MIN_LP_QUESTIONS = 1
 FOLLOW_UP_COUNT = 1
 LLM_ENDPOINT = "http://localhost:8000/generate-followup"
@@ -122,7 +122,7 @@ class TurnEngine:
             if self.time_remaining() <= 0:
                 break
 
-            transcript = transcribe_speech(stop_duration=4.0, max_wait=2)
+            transcript = transcribe_speech(stop_duration=4.0, max_wait=10)
             if transcript.strip():
                 return transcript
 
@@ -182,11 +182,13 @@ class TurnEngine:
                     continue
                 elif moderation_status=="thinking":
                     self.tts.speak("Sure please take a couple of minutes")
-                    # wait time logic
-                    pass
-
+                    continue
                 else:
                     break
+
+            if not main_answer.strip():
+                self.tts.speak("Moving to next question due to empty response.")
+                continue
 
             followup_questions = []
             followup_answers = []

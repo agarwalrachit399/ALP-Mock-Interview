@@ -87,9 +87,17 @@ class STTTranscriber:
         self.start_time = time.time()
 
     def stream_callback(self, in_data, frame_count, time_info, status):
-        if self.max_wait and (time.time() - self.start_time > self.max_wait):
-            print("⏰ Max wait time reached. Ending.")
-            self.stop_transcription = True
+        if not self.vad_monitor.speech_detected:
+            if not hasattr(self, "no_speech_start_time"):
+                self.no_speech_start_time = time.time()
+
+            if self.max_wait and (time.time() - self.no_speech_start_time > self.max_wait):
+                print("⏰ No speech detected for max_wait duration. Ending.")
+                self.stop_transcription = True
+        else:
+            # Reset timer since speech has started
+            self.no_speech_start_time = None
+
 
         if self.stop_transcription:
             print("🔁 Stream callback returning silence to finish...")
@@ -179,4 +187,3 @@ class STTTranscriber:
 def transcribe_speech(stop_duration, max_wait=None):
     transcriber = STTTranscriber(silence_duration=stop_duration, max_wait=max_wait)
     return transcriber.run_transcription()
-
