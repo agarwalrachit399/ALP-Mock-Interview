@@ -6,6 +6,8 @@ import os
 import requests
 import logging
 import uuid
+from intro import IntroHandler
+
 
 # Setup logging
 logging.basicConfig(
@@ -39,6 +41,9 @@ class TurnEngine:
         self.session_id = str(uuid.uuid4())
         self.tts = TTSHandler()
         self.db_logger = MongoLogger()
+        self.intro_handler = IntroHandler()## intro 
+
+       
 
     def time_remaining(self):
         return SESSION_DURATION_LIMIT - (time.time() - self.session_start_time)
@@ -132,6 +137,8 @@ class TurnEngine:
         print("Interview started. Maximum duration: 60 minutes.")
         logging.info("Interview session started")
         self.session_start_time = time.time()
+        # self.intro_handler.run_intro() #Intro
+
         lp_asked = 0
 
         while self.time_remaining() > 0 and lp_asked < MIN_LP_QUESTIONS:
@@ -163,12 +170,23 @@ class TurnEngine:
                     return
                 elif moderation_status == "off_topic":
                     self.tts.speak("Please try to answer the question related to your experience.")
+                elif moderation_status == "repeat":
+                    self.tts.speak("Sure, let me repeat the question.")
+                    self.ask_question(main_question)
+                    continue  # re-listen to user's input
+                elif moderation_status == "change":
+                    self.tts.speak(
+                        "Unfortunately, we can't change the question, "
+                        "but feel free to use any academic, co-curricular, or personal experiences to answer it to the best of your ability."
+                    )
+                    continue
+                elif moderation_status=="thinking":
+                    self.tts.speak("Sure please take a couple of minutes")
+                    # wait time logic
+                    pass
+
                 else:
                     break
-
-            if not main_answer.strip():
-                self.tts.speak("Let's move on to the next topic.")
-                continue
 
             followup_questions = []
             followup_answers = []
@@ -196,6 +214,19 @@ class TurnEngine:
                         return
                     elif moderation_status == "off_topic":
                         self.tts.speak("Please answer the question based on your relevant experience.")
+                    elif moderation_status == "repeat":
+                        self.tts.speak("Sure, let me repeat the question.")
+                        self.ask_question(main_question)
+                        continue  # re-listen to user's input
+                    elif moderation_status == "change":
+                        self.tts.speak(
+                            "Unfortunately, we can't change the question, "
+                            "but feel free to use any academic, co-curricular, or personal experiences to answer it to the best of your ability."
+                        )
+                        continue
+                    elif moderation_status=="thinking":
+                        continue
+
                     else:
                         break
 
