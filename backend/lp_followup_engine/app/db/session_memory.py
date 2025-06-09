@@ -3,7 +3,7 @@ from collections import defaultdict
 class SessionMemory:
     def __init__(self, principle: str):
         self.principle = principle
-        self.history = []  # List of {role, type?, content}
+        self.history = []
 
     def add_main_question(self, question: str, user_response: str):
         self.history.append({"role": "interviewer", "type": "main", "content": question})
@@ -18,7 +18,7 @@ class SessionMemory:
 
 class SessionMemoryManager:
     def __init__(self):
-        self.sessions = defaultdict(dict)  # {session_id: {principle: SessionMemory}}
+        self.sessions = defaultdict(dict)
 
     def has_session(self, session_id: str, principle: str):
         return principle in self.sessions[session_id]
@@ -33,6 +33,3 @@ class SessionMemoryManager:
 
     def get_history(self, session_id: str, principle: str):
         return self.sessions[session_id][principle].get_history()
-
-    def session_exists(self, session_id: str):
-        return session_id in self.sessions

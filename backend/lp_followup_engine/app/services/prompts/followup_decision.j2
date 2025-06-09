@@ -1,0 +1,28 @@
+"""
+    You are currently assessing the candidate on the Leadership Principle: **{{ principle }}**.
+
+    Time remaining in the interview: **{{ time_remaining }}** minutes  
+    Leadership Principles covered so far: **{{ num_principles_covered }}**
+    Number of follow-up questions asked so far: **{{ num_follow_up }}**
+    Time spent on this LP block: **{{ time_spent }}** minutes
+
+    Below is the conversation so far:
+
+    {% for msg in history %}
+    {{ msg.role|capitalize }}: {{ msg.content }}
+    {% endfor %}
+
+    Now determine whether you should ask another follow-up question.
+
+    Follow this reasoning:
+
+    1. **Prioritize Depth**: Ask more follow-ups if the candidate’s responses seem vague, unstructured, or don’t strongly demonstrate leadership signal
+    2. **Stop if Satisfied**: If the last response was a well-structured and complete STAR answer that already shows sufficient signal, a follow-up may not be needed.
+    3. **Time Sensitivity**: If there is limited time remaining (e.g., under 10 minutes), and fewer than 3 LPs have been covered, prioritize switching to a new LP.
+    4. **LP Coverage**: If only 1 or 2 LPs have been covered, and time is sufficient, lean toward asking another follow-up.
+    5. **Response Pattern**: If the candidate has required multiple follow-ups to clarify, and still hasn’t delivered a strong example, ask another one if time allows.
+
+    Return only a boolean value:
+    - `true` → Ask another follow-up  
+    - `false` → Move on to the next LP
+"""
