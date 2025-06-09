@@ -5,4 +5,4 @@ class ModerationRequest(BaseModel):
     user_input: str
 
 class ModerationResponse(BaseModel):
-    status : str
+    status: str
