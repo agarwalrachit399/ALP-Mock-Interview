@@ -1,16 +1,11 @@
 import time
-import sys
-import os
 import logging
 import re
 import spacy
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "interaction_layer"))
-from stt_handler import transcribe_speech
-from tts_handler import TTSHandler
-
-
-
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from services.stt_handler import transcribe_speech
+from services.tts_handler import TTSHandler
 
 class IntroHandler:
     def __init__(self):
