@@ -90,8 +90,23 @@ class TurnEngine:
             current_q = main_question
             current_a = main_answer
 
-            for _ in range(FOLLOW_UP_COUNT):
+            num_followups = 0
+            while num_followups < FOLLOW_UP_COUNT:
                 if self.session_manager.time_remaining(SESSION_DURATION_LIMIT) <= 0:
+                    break
+
+                should_generate = followup_manager.should_generate_followup(
+                    lp,
+                    current_q,
+                    current_a,
+                    num_followups,
+                    lp_asked,
+                    round(self.session_manager.time_remaining(SESSION_DURATION_LIMIT) / 60)
+
+                )
+
+                if not should_generate:
+                    logging.info(f"Follow-up skipped by policy after {num_followups} follow-up(s).")
                     break
 
                 follow_up = followup_manager.generate_followup(lp, current_q, current_a)
@@ -117,6 +132,8 @@ class TurnEngine:
 
                 followups.append({"question": follow_up, "answer": user_answer})
                 current_q, current_a = follow_up, user_answer
+                num_followups += 1
+
 
             self.logger.log_lp_block(session_id, lp, main_question, main_answer, followups)
             lp_asked += 1
