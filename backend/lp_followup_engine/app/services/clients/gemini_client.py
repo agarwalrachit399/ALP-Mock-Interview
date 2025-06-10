@@ -52,4 +52,4 @@ class GeminiClient(BaseLLMClient):
                 temperature=self.temperature
             )
         )
-        return response.text.strip()
+        return response.text
