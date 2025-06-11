@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.models.user_model import UserCreate, UserLogin, UserOut
-from app.services.auth import AuthService
-from app.db.user_handler import UserDB
+from auth_service.app.models.user_model import UserCreate, UserLogin, UserOut
+from auth_service.app.services.auth import AuthService
+from auth_service.app.db.user_handler import UserDB
 
 router = APIRouter()
 

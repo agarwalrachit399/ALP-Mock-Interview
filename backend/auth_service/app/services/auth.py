@@ -2,9 +2,9 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import jwt
 from fastapi import HTTPException
-from app.core import config
-from app.models.user_model import UserCreate, UserLogin
-from app.db.user_handler import UserDB
+from auth_service.app.core import config
+from auth_service.app.models.user_model import UserCreate, UserLogin
+from auth_service.app.db.user_handler import UserDB
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

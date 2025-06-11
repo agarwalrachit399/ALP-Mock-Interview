@@ -1,8 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
-from app.core import config
-from app.db.user_handler import UserDB
+from auth_service.app.core import config
+from auth_service.app.db.user_handler import UserDB
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

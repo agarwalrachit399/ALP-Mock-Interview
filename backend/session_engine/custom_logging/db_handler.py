@@ -12,9 +12,10 @@ class MongoLogger:
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
 
-    def log_lp_block(self, session_id, principle, main_question, main_answer, followups):
+    def log_lp_block(self, session_id, user_id, principle, main_question, main_answer, followups):
         doc = {
             "session_id": session_id,
+            "user_id": user_id,
             "principle": principle,
             "main_question": {
                 "question": main_question,

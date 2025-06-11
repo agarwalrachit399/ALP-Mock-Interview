@@ -7,14 +7,14 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from config.constants import SESSION_DURATION_LIMIT, MIN_LP_QUESTIONS, FOLLOW_UP_COUNT, QUESTION_FILE
-from session_manager import SessionManager
-from lp_selector import LPSelector
-from services.moderation_service import ModerationService
-from services.followup_manager import FollowupManager
-from handlers.question_handler import QuestionHandler
-from custom_logging.logger import InteractionLogger
-from services.tts_handler import TTSHandler
+from session_engine.config.constants import SESSION_DURATION_LIMIT, MIN_LP_QUESTIONS, FOLLOW_UP_COUNT, QUESTION_FILE
+from session_engine.engine.session_manager import SessionManager
+from session_engine.engine.lp_selector import LPSelector
+from session_engine.services.moderation_service import ModerationService
+from session_engine.services.followup_manager import FollowupManager
+from session_engine.handlers.question_handler import QuestionHandler
+from session_engine.custom_logging.logger import InteractionLogger
+from session_engine.services.tts_handler import TTSHandler
 
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +28,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(file_handler)
 
 class TurnEngine:
-    def __init__(self):
+    def __init__(self, user_id: str):
         with open(QUESTION_FILE, "r") as f:
             self.lp_questions = json.load(f)
 
@@ -36,7 +36,7 @@ class TurnEngine:
         self.tts = TTSHandler()
         self.lp_selector = LPSelector(self.lp_questions)
         self.moderator = ModerationService()
-        self.logger = InteractionLogger()
+        self.logger = InteractionLogger(user_id)
         self.question_handler = QuestionHandler(self.tts, self.session_manager, SESSION_DURATION_LIMIT)
 
     def start_interview(self):
