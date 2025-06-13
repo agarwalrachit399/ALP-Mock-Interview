@@ -34,7 +34,7 @@ class WebSocketInterviewSession:
 
     async def start(self):
         logging.info("WebSocket interview session started")
-        await self.websocket.send_json({"type": "system", "text": "Interview started!"})
+        await self.websocket.send_json({"type": "system", "text": "Interview started!", "session_id": self.session_manager.get_session_id()})
 
         # Create concurrent tasks including a message listener
         interview_task = asyncio.create_task(self._run_interview())
@@ -233,6 +233,6 @@ class WebSocketInterviewSession:
         # Only send completion message if not cancelled
         if not self.cancel_event.is_set():
             self.tts.speak("Thank you for your time. The interview session is now complete.")
-            await self.websocket.send_json({"type": "complete", "text": "Interview session complete!"})
+            await self.websocket.send_json({"type": "complete", "text": "Interview session complete!","session_id": self.session_id })
         
         logging.info("Interview loop completed")
