@@ -1,7 +1,7 @@
 import os
-SESSION_DURATION_LIMIT = 60 * 60  # in seconds
-MIN_LP_QUESTIONS = 3
-FOLLOW_UP_COUNT = 4
+SESSION_DURATION_LIMIT = 30 * 60  # in seconds
+MIN_LP_QUESTIONS = 2
+FOLLOW_UP_COUNT = 1
 LLM_ENDPOINT = "http://localhost:8000/generate-followup"
 SHOULD_GENERATE_ENDPOINT = "http://localhost:8000/should-followup"
 MODERATION_ENDPOINT = "http://localhost:8100/moderate"
