@@ -16,14 +16,8 @@ def analyze_lp_from_doc(doc: Dict[str, Any]) -> str:
         conversation.append(f"Candidate: {fup.get('answer', '')}")
 
     conversation_text = "\n".join(conversation)
-
-    prompt = render_prompt(
-        "analyze_lp.j2",
-        lp_type=lp_type,
-        conversation_text=conversation_text
-    )
-
-    return gemini_client.generate(prompt)
+    result = gemini_client.generate_with_conversation(conversation_text, lp_type)
+    return result
 
 def analyze_all_principles_for_session(session_id: str) -> List[Dict[str, Any]]:
     docs = get_all_conversations_by_session(session_id)
@@ -32,9 +26,12 @@ def analyze_all_principles_for_session(session_id: str) -> List[Dict[str, Any]]:
     for doc in docs:
         try:
             result = analyze_lp_from_doc(doc)
+
             results.append({
-                "principle": doc.get("principle"),
-                "analysis": result
+                
+             "Result": result
+                
+               
             })
         except Exception as e:
             results.append({
