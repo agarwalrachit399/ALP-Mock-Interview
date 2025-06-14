@@ -32,7 +32,8 @@ class FollowupManager:
             resp = requests.post(SHOULD_GENERATE_ENDPOINT, json=payload)
             resp.raise_for_status()
             result = resp.json()
-            return result.get("followup", True)  # default to True if not specified
+            # result.get("followup", True)
+            return True  # default to True if not specified
 
         except requests.RequestException as e:
             logging.warning(f"⚠️ Could not reach should_generate_followup endpoint: {e}")

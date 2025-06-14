@@ -1,0 +1,11 @@
+
+{
+  "session_id": "abc123-session",
+  "principle": "Customer Obsession",
+  "question": "Tell me about a time you went above and beyond for a customer or end-user.",
+  "user_input": "During my internship, I noticed a critical issue reported by a user that our ticketing system had marked as low priority. I manually investigated the logs and identified it as a security loophole affecting multiple users. I worked over the weekend to develop a patch and coordinated with the deployment team to roll it out early. The customer appreciated the fast turnaround and our team was recognized internally.",
+  "time_remaining":27,
+  "time_spent": 3,
+  "num_followups": 1,
+  "num_lp_questions": 2
+}
