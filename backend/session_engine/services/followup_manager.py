@@ -51,21 +51,32 @@ class FollowupManager:
         try:
             response = requests.post(LLM_ENDPOINT, json=payload, stream=True)
             response.raise_for_status()
+            followup = response.json().get("followup", "").strip()
+        
+            if followup:
+                logging.info(f"LLM Follow-up (final): {followup}")
+                self.tts.speak(followup)
+                return followup
+            else:
+                logging.warning("Empty followup received from LLM")
+                fallback = "Can you elaborate further on that?"
+                self.tts.speak(fallback)
+                return fallback
 
-            buffer_manager = StreamTextChunkBuffer(tts=self.tts)
-            followup_parts = []
+            # buffer_manager = StreamTextChunkBuffer(tts=self.tts)
+            # followup_parts = []
 
-            for chunk in response.iter_content(chunk_size=64, decode_unicode=True):
-                if not chunk.strip():
-                    continue
-                buffer_manager.feed_chunk(chunk)
-                followup_parts.append(chunk)
+            # for chunk in response.iter_content(chunk_size=64, decode_unicode=True):
+            #     if not chunk.strip():
+            #         continue
+            #     buffer_manager.feed_chunk(chunk)
+            #     followup_parts.append(chunk)
 
-            buffer_manager.flush()
+            # buffer_manager.flush()
 
-            followup = "".join(followup_parts).strip()
-            logging.info(f"LLM Follow-up (final): {followup}")
-            return followup
+            # followup = "".join(followup_parts).strip()
+            # logging.info(f"LLM Follow-up (final): {followup}")
+            # return followup
 
         except requests.exceptions.RequestException as e:
             logging.error(f"❌ Error calling LLM microservice: {e}")

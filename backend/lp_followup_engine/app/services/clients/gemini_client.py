@@ -11,7 +11,7 @@ class GeminiClient(BaseLLMClient):
         self.temperature = temperature
 
     def generate_stream(self, prompt: str):
-        response = client.models.generate_content_stream(
+        response = client.models.generate_content(
             model=self.model,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -23,33 +23,30 @@ class GeminiClient(BaseLLMClient):
                 max_output_tokens=250
             )
         )
-        for chunk in response:
-            yield chunk.text.strip()
+        # for chunk in response:
+        #     yield chunk.text.strip()
+        return response.text.strip().lower()
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str) -> bool:
+        """Determines whether to ask a follow-up question based on context"""
         response = client.models.generate_content(
             model=self.model,
             contents=prompt,
             config=types.GenerateContentConfig(
-                system_instruction = 
-                    "You are a senior Amazon Bar Raiser with over 10 years of experience in behavioral interviewing for Leadership Principles (LPs). "\
-                    "Your goal is to collect sufficient behavioral signal on at least 2 distinct LPs within a strict 30-minute interview.\n\n"\
-                    
-                    "Each LP block typically consists of 1 main question and 1–4 follow-up questions depending on answer quality and time remaining. "\
-                    "You prioritize **depth** of insight — especially when answers are vague, lack structure (e.g., STAR format), or don’t show strong leadership traits.\n\n"\
-
-                    "However, your top priority is to ensure **at least 2 LPs are covered** in the allotted time. "\
-                    "If you’re behind schedule, you may reduce follow-ups and move on, even if the current LP isn’t fully exhausted.\n\n"\
-
-                    "You must decide whether to ask a follow-up question based on:\n"\
-                    "- Time remaining in the interview\n"\
-                    "- Number of LPs covered so far\n"\
-                    "- Quality and depth of the candidate’s previous responses (especially follow-ups)\n"\
-                    "- Whether more probing is likely to produce stronger leadership signal\n"\
-                    "- Whether it’s time to switch to a new LP to maintain minimum coverage\n\n"\
-
-                    "Respond with `true` if a follow-up should be asked, or `false` if it's better to move on to the next LP.",
+                system_instruction="You are a senior Amazon Bar Raiser with over 10 years of experience in behavioral interviewing for Leadership Principles (LPs). "\
+                "Your goal is to collect sufficient behavioral signal on at least 2 distinct LPs within a strict 30-minute interview.\n\n"\
+                "Each LP block typically consists of 1 main question and 1–4 follow-up questions depending on answer quality and time remaining. "\
+                "You prioritize **depth** of insight — especially when answers are vague, lack structure (e.g., STAR format), or don't show strong leadership traits.\n\n"\
+                "However, your top priority is to ensure **at least 2 LPs are covered** in the allotted time. "\
+                "If you're behind schedule, you may reduce follow-ups and move on, even if the current LP isn't fully exhausted.\n\n"\
+                "You must decide whether to ask a follow-up question based on:\n"\
+                "- Time remaining in the interview\n"\
+                "- Number of LPs covered so far\n"\
+                "- Quality and depth of the candidate's previous responses (especially follow-ups)\n"\
+                "- Whether more probing is likely to produce stronger leadership signal\n"\
+                "- Whether it's time to switch to a new LP to maintain minimum coverage\n\n"\
+                "Respond with `true` if a follow-up should be asked, or `false` if it's better to move on to the next LP.",
                 temperature=self.temperature
             )
         )
-        return response.text
+        return response.text.strip().lower() == 'true'
