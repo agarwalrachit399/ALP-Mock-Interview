@@ -1,114 +1,114 @@
 {
-    "Customer Obsession": [
-        "Tell me about a time you went above and beyond for a customer.",
-        "How do you incorporate customer feedback into your work?",
-        "Describe a situation where you had to advocate for the customer.",
-        "When have you prioritized customer needs over business goals?",
-        "How do you ensure your product/service meets customer expectations?"
-    ],
-    "Ownership": [
-        "Describe a time you took responsibility for a project beyond your role.",
-        "Tell me about a situation where you had to fix a mistake you didn’t cause.",
-        "Have you ever had to step up as a leader unexpectedly?",
-        "How do you ensure accountability within your team?",
-        "Tell me about a time you owned an outcome end-to-end."
-    ],
-    "Invent and Simplify": [
-        "Tell me about a time you simplified a complex process.",
-        "Have you created a solution that didn’t exist before?",
-        "Describe an innovation you implemented.",
-        "When did you challenge the status quo?",
-        "How do you balance innovation with efficiency?"
-    ],
-    "Are Right, A Lot": [
-        "Describe a time when your judgment led to a successful outcome.",
-        "How do you validate your ideas or decisions?",
-        "Tell me about a time you were wrong—what did you learn?",
-        "How do you incorporate data and intuition in decision-making?",
-        "Describe a tough decision where you had to rely on your experience."
-    ],
-    "Learn and Be Curious": [
-        "What’s something new you've learned recently and how?",
-        "Tell me about a time your curiosity led to a breakthrough.",
-        "Describe a time you pursued learning outside of work.",
-        "How do you stay updated with industry trends?",
-        "Have you ever changed your approach after learning something new?"
-    ],
-    "Hire and Develop the Best": [
-        "How do you evaluate potential in candidates?",
-        "Tell me about a time you helped a teammate grow.",
-        "Describe your approach to mentorship.",
-        "Have you ever had to let someone go who wasn’t a good fit?",
-        "How do you build a strong team?"
-    ],
-    "Insist on the Highest Standards": [
-        "Tell me about a time you weren’t satisfied with a project’s quality.",
-        "How do you maintain high standards under pressure?",
-        "Describe a time you challenged mediocrity.",
-        "How do you ensure quality in your work?",
-        "Have you ever had to push back against a deadline for quality?"
-    ],
-    "Think Big": [
-        "Describe a visionary idea you had and how you executed it.",
-        "Tell me about a time you set ambitious goals.",
-        "How do you inspire others to think big?",
-        "Have you ever failed because you didn’t think big enough?",
-        "When did you scale a small idea into something impactful?"
-    ],
-    "Bias for Action": [
-        "Describe a time you made a quick decision with limited data.",
-        "Tell me about a risk you took and what happened.",
-        "How do you avoid analysis paralysis?",
-        "Have you ever been criticized for acting too quickly?",
-        "When did acting fast help you capitalize on an opportunity?"
-    ],
-    "Frugality": [
-        "Tell me about a time you delivered results with limited resources.",
-        "Describe a cost-saving idea you implemented.",
-        "How do you maximize impact without increasing budget?",
-        "When did you find a creative workaround for a budget issue?",
-        "What’s your approach to resource management?"
-    ],
-    "Earn Trust": [
-        "How do you build trust with new colleagues?",
-        "Tell me about a time you lost someone’s trust—how did you fix it?",
-        "When did transparency help you earn credibility?",
-        "Describe a conflict you resolved by building trust.",
-        "How do you maintain trust across diverse teams?"
-    ],
-    "Dive Deep": [
-        "Tell me about a time you uncovered a root cause no one else saw.",
-        "How do you ensure thorough understanding of a problem?",
-        "Describe a time you used data to solve a problem.",
-        "Have you ever challenged assumptions with detailed analysis?",
-        "When did you go beyond surface-level information to make a decision?"
-    ],
-    "Have Backbone; Disagree and Commit": [
-        "Tell me about a time you challenged your boss or team.",
-        "How do you handle disagreement in a team setting?",
-        "Describe a time you strongly disagreed with a decision but followed through.",
-        "When did standing your ground lead to a better outcome?",
-        "How do you balance assertiveness with collaboration?"
-    ],
-    "Deliver Results": [
-        "Tell me about a time you had to meet a tight deadline.",
-        "How do you prioritize tasks to deliver on goals?",
-        "Describe a time when you exceeded expectations.",
-        "When did you face obstacles but still delivered results?",
-        "What’s your approach to ensuring consistent performance?"
-    ],
-    "Strive to be Earth’s Best Employer": [
-        "How do you foster a safe and inclusive work environment?",
-        "Tell me about a time you advocated for someone on your team.",
-        "What initiatives have you taken to improve team morale?",
-        "Describe how you promote diversity, equity, and inclusion.",
-        "How do you contribute to making your workplace better for everyone?"
-    ],
-    "Success and Scale Bring Broad Responsibility": [
-        "How do you think about long-term impact of your work?",
-        "Tell me about a time you made a sustainable decision.",
-        "When did you advocate for responsible practices at scale?",
-        "Describe a decision where you balanced growth with ethics.",
-        "How do you ensure your team’s actions positively impact others?"
-    ]
+  "Customer Obsession": [
+    "Tell me about a time you went above and beyond for a customer or end-user.",
+    "How have you incorporated customer feedback to improve your product or solution?",
+    "Describe a situation where customer needs drove your technical decisions under a tight deadline.",
+    "Tell me about a time when you received negative customer feedback and how you addressed it.",
+    "How have you balanced customer requirements with technical constraints?"
+  ],
+  "Ownership": [
+    "Describe a time you took initiative to resolve an issue outside your defined responsibilities.",
+    "Tell me about a situation where you addressed a critical issue you did not directly cause.",
+    "Have you ever stepped up to lead when your team lacked clear direction?",
+    "Describe how you ensured accountability and follow-through in a team project.",
+    "Tell me about a time you took full ownership of a deliverable from start to finish."
+  ],
+  "Invent and Simplify": [
+    "Tell me about a time you redesigned or simplified a technical process for better efficiency.",
+    "Describe a situation where you introduced a novel solution to address a technical gap.",
+    "Have you developed a more efficient alternative to an existing approach or system?",
+    "Tell me about a time you reduced operational complexity through innovation.",
+    "How do you ensure your solutions remain simple while being scalable and effective?"
+  ],
+  "Are Right, A Lot": [
+    "Describe a time your technical judgment led to a successful outcome.",
+    "Tell me how you typically validate your design or architectural decisions.",
+    "Have you ever made an incorrect call? What did you learn and how did you respond?",
+    "How do you strike a balance between intuition and data when making decisions?",
+    "Tell me about a time when your insight revealed the root cause of a persistent issue."
+  ],
+  "Learn and Be Curious": [
+    "What is a new skill, tool, or technology you’ve recently learned and applied?",
+    "Tell me about a time your curiosity led you to a significant discovery or improvement.",
+    "Have you proactively pursued learning outside your current role or responsibilities?",
+    "How do you stay up-to-date with emerging trends in software development?",
+    "Describe a time you changed your approach after gaining new technical insights."
+  ],
+  "Hire and Develop the Best": [
+    "Tell me about a time you helped a colleague improve their technical work or understanding.",
+    "Describe how you've shared knowledge to raise the technical bar within your team.",
+    "Have you provided mentorship or technical guidance to a newer team member?",
+    "How do you offer feedback that fosters growth and improvement?",
+    "What steps have you taken to contribute to a high-performing team culture?"
+  ],
+  "Insist on the Highest Standards": [
+    "Tell me about a time you were not satisfied with the quality of a deliverable and took action.",
+    "How do you maintain code quality when working under tight deadlines?",
+    "Describe a situation where you upheld technical standards despite pushback.",
+    "What strategies do you use to ensure your work meets rigorous quality benchmarks?",
+    "Have you ever advocated for rework or refactoring to maintain long-term quality?"
+  ],
+  "Think Big": [
+    "Describe a time when you proposed a technically ambitious project or improvement.",
+    "Tell me about a situation where you aimed beyond the immediate scope to deliver lasting value.",
+    "How do you motivate others to consider scalable and forward-thinking solutions?",
+    "Have you ever reflected that your initial solution lacked vision? What did you do?",
+    "When have you taken a local solution and expanded it into a broader impact?"
+  ],
+  "Bias for Action": [
+    "Tell me about a time you acted quickly to resolve a critical issue with limited data.",
+    "Describe a calculated risk you took to meet a deadline or opportunity.",
+    "Have you ever avoided delays by making a decision independently?",
+    "Describe a situation where swift action was more important than complete information.",
+    "Tell me about a time urgency played a key role in your success."
+  ],
+  "Frugality": [
+    "Describe a time you delivered results using minimal resources or budget.",
+    "Tell me about a time you reused or repurposed an existing solution to save effort.",
+    "Have you implemented a creative workaround when resources were constrained?",
+    "How do you ensure efficient use of resources in your development process?",
+    "Tell me about a situation where you delivered impact without increasing costs or dependencies."
+  ],
+  "Earn Trust": [
+    "How do you establish trust when working with a new team or stakeholder?",
+    "Tell me about a time you took responsibility for a mistake and how that impacted your credibility.",
+    "Describe a time you maintained open communication to prevent misunderstandings.",
+    "How have you rebuilt trust after a disagreement or conflict?",
+    "Tell me about a time when transparency strengthened your working relationships."
+  ],
+  "Dive Deep": [
+    "Describe a time you thoroughly investigated an issue and uncovered an unexpected root cause.",
+    "Tell me how you ensure a deep understanding of the systems you work on.",
+    "Have you ever used data and logs to resolve a complex technical challenge?",
+    "Tell me about a time your attention to detail exposed a critical problem others missed.",
+    "How do you identify the real problem when symptoms suggest multiple causes?"
+  ],
+  "Have Backbone; Disagree and Commit": [
+    "Tell me about a time you respectfully challenged a technical decision on your team.",
+    "Describe how you handled a disagreement with a colleague or manager on a project.",
+    "Have you ever had to commit to a plan you initially disagreed with? What happened?",
+    "How do you balance assertiveness with maintaining a collaborative environment?",
+    "Describe a situation where you defended a viewpoint despite resistance, and what the outcome was."
+  ],
+  "Deliver Results": [
+    "Tell me about a time you successfully delivered a project under tight constraints.",
+    "How do you organize and prioritize tasks to meet your objectives?",
+    "Describe a situation where you exceeded performance or delivery expectations.",
+    "Tell me about a challenge you faced mid-project and how you ensured successful delivery.",
+    "What metrics do you focus on to track progress and ensure results?"
+  ],
+  "Strive to be Earth’s Best Employer": [
+    "How do you contribute to fostering a respectful and inclusive workplace?",
+    "Tell me about a time you supported a colleague during a difficult situation.",
+    "What have you done to improve team morale or engagement?",
+    "Describe how you helped create a more welcoming and inclusive environment.",
+    "Tell me about a time you advocated for fairness or psychological safety on your team."
+  ],
+  "Success and Scale Bring Broad Responsibility": [
+    "Describe how you consider the long-term impact of your technical decisions.",
+    "Tell me about a time you made a choice that promoted sustainability or efficiency at scale.",
+    "How do you ensure your work contributes positively beyond your immediate team?",
+    "Tell me about a time you prioritized ethical implications in a project decision.",
+    "Have you taken action to reduce negative consequences in a project that affected multiple stakeholders?"
+  ]
 }

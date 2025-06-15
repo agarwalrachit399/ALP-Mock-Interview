@@ -11,6 +11,7 @@ class GeminiClient(BaseLLMClient):
         self.temperature = temperature
 
     def generate_stream(self, prompt: str):
+        # response = client.models.generate_content_stream(
         response = client.models.generate_content(
             model=self.model,
             contents=prompt,

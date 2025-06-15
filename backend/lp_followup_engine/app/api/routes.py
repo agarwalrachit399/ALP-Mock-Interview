@@ -21,11 +21,9 @@ async def generate_followup(data: FollowupRequest):
             memory_manager.add_followup(session_id, principle, question, user_input)
 
         history = memory_manager.get_history(session_id, principle)
-        # stream = generator.generate(principle, history)
+        stream = generator.generate(principle, history)
         # return StreamingResponse(stream, media_type="text/plain")
-        followup = generator.generate(principle, history)
-        
-        return {"followup": followup}
+        return {"followup": stream}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
