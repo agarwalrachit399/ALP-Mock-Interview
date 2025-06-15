@@ -11,7 +11,8 @@ class GeminiClient(BaseLLMClient):
         self.temperature = temperature
 
     def generate_stream(self, prompt: str):
-        response = client.models.generate_content_stream(
+        # response = client.models.generate_content_stream(
+        response = client.models.generate_content(
             model=self.model,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -23,8 +24,9 @@ class GeminiClient(BaseLLMClient):
                 max_output_tokens=250
             )
         )
-        for chunk in response:
-            yield chunk.text.strip()
+        # for chunk in response:
+        #     yield chunk.text.strip()
+        return response.text.strip().lower()
 
     def generate(self, prompt: str) -> str:
         response = client.models.generate_content(
