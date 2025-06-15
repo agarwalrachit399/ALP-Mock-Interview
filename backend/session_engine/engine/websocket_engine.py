@@ -141,6 +141,31 @@ class WebSocketInterviewSession:
             if message_id in self.pending_questions:
                 del self.pending_questions[message_id]
 
+    async def speak_and_wait(self, text, speech_type="system"):
+        """Send speech message to frontend and wait for TTS completion"""
+        message_id = str(uuid.uuid4())
+        
+        print(f"🔊 [SPEECH] Sending {speech_type} speech: {text[:50]}...")
+        
+        # Register for TTS tracking
+        self.pending_questions[message_id] = {
+            "text": text,
+            "type": speech_type,
+            "status": "tts_pending",
+            "timestamp": time.time()
+        }
+        
+        # Send to frontend
+        await self.websocket.send_json({
+            "type": "speech",
+            "text": text,
+            "speech_type": speech_type,
+            "message_id": message_id
+        })
+        
+        # Wait for completion
+        await self._wait_for_tts_completion(message_id, timeout=10)
+
     async def ask_question_and_wait_for_response(self, question):
         """Ask question with TTS coordination and get response"""
         message_id = str(uuid.uuid4())
@@ -240,14 +265,14 @@ class WebSocketInterviewSession:
                     await self.websocket.send_json({"type": "terminate", "reason": "inappropriate"})
                     return
                 elif mod_status == "off_topic":
-                    self.tts.speak("Please try to answer the question related to your experience.")
+                    await self.speak_and_wait("Please try to answer the question related to your experience.", "moderation")
                 elif mod_status == "repeat":
-                    self.tts.speak("Sure, let me repeat the question.")
+                    await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
                     # Continue loop to ask question again
                 elif mod_status == "change":
-                    self.tts.speak("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.")
+                    await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
                 elif mod_status == "thinking":
-                    self.tts.speak("Sure, take a couple of minutes.")
+                    await self.speak_and_wait("Sure, take a couple of minutes.", "moderation")
                 else:
                     break
 
@@ -293,14 +318,14 @@ class WebSocketInterviewSession:
                         await self.websocket.send_json({"type": "terminate", "reason": "inappropriate"})
                         return
                     elif mod_status == "off_topic":
-                        self.tts.speak("Please answer the question based on your relevant experience.")
+                        await self.speak_and_wait("Please answer the question based on your relevant experience.", "moderation")
                     elif mod_status == "repeat":
-                        self.tts.speak("Sure, let me repeat the question.")
+                        await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
                         # Continue loop to ask question again
                     elif mod_status == "change":
-                        self.tts.speak("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.")
+                        await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
                     elif mod_status == "thinking":
-                        self.tts.speak("Sure, take your time.")
+                        await self.speak_and_wait("Sure, take your time.", "moderation")
                     else:
                         break
 
@@ -313,11 +338,10 @@ class WebSocketInterviewSession:
                 self.logger.log_lp_block(self.session_id, lp, main_question, main_answer, followups)
                 lp_asked += 1
                 if lp_asked < MIN_LP_QUESTIONS:
-                    self.tts.speak(f"Thank you for your response. Let's move to the next topic.")
+                    await self.speak_and_wait(f"Thank you for your response. Let's move to the next topic.", "transition")
 
         # Only send completion message if not cancelled
         if not self.cancel_event.is_set():
-            self.tts.speak("Thank you for your time. The interview session is now complete.")
-            await self.websocket.send_json({"type": "complete", "text": "Interview session complete!","session_id": self.session_id })
+            await self.websocket.send_json({"type": "complete", "text": "Thank you for your time. The interview session is now complete.","session_id": self.session_id })
         
         logging.info("Interview loop completed")
