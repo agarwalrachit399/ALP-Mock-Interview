@@ -6,11 +6,10 @@ from jwt import ExpiredSignatureError, PyJWTError
 from auth_service.app.core import config
 
 router = APIRouter()
-active_sessions = set()  # ← ADD THIS BACK
+active_sessions = set()  # Session deduplication
 
 @router.websocket("/ws/interview")
 async def websocket_interview(websocket: WebSocket, token: str = Query(...)):
-    # token = websocket.headers.get("authorization")
     print(f"WebSocket connection attempt with token: {token}")
     if not token:
         await websocket.close(code=403)
@@ -28,7 +27,7 @@ async def websocket_interview(websocket: WebSocket, token: str = Query(...)):
         await websocket.close(code=403)
         return
     
-    # ← ADD THIS BACK - Session deduplication
+    # Session deduplication
     if not user_id in active_sessions:
         active_sessions.add(user_id)
         print(f"🔍 [DEBUG] Added user {user_id} to active sessions. Total: {len(active_sessions)}")
@@ -44,15 +43,22 @@ async def websocket_interview(websocket: WebSocket, token: str = Query(...)):
     
     await websocket.accept()
     
-    # 🔊 Inject TTSHandler
+    # Initialize TTS handler and enhanced session with TTS coordination
     tts_handler = TTSHandler()
     session = WebSocketInterviewSession(user_id=user_id, websocket=websocket, tts_handler=tts_handler)
     
     try:
+        print(f"🎤 [SESSION] Starting coordinated interview session for user {user_id}")
         await session.start()
     except WebSocketDisconnect:
         print("Client disconnected")
-    finally:  # ← ADD THIS BACK - Session cleanup
+    except Exception as e:
+        print(f"Session error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # Session cleanup
         print(f"🔍 [DEBUG] Removing user {user_id} from active sessions")
         active_sessions.discard(user_id)
         print(f"🔍 [DEBUG] Active sessions remaining: {len(active_sessions)}")
+        print(f"🎤 [SESSION] Interview session ended for user {user_id}")

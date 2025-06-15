@@ -14,26 +14,12 @@ class WebSocketQuestionHandler:
         self.tts = tts
         self.cancel_event = cancel_event
 
-    async def ask_question(self, text: str):
-        # Check for cancellation before asking
-        if self.cancel_event.is_set():
-            return
-            
-        logging.info(f"Bot asked: {text}")
-        try:
-            await self.websocket.send_json({
-                "type": "question",
-                "text": text
-            })
-            self.tts.speak(text)
-        except Exception as e:
-            logging.error(f"Error asking question: {e}")
-            self.cancel_event.set()
-        
-        print("👂 Awaiting user response...")
-
     async def get_user_response(self, max_tries: int = 2) -> str:
-        print("🔍 [DEBUG] Starting get_user_response")
+        """
+        Get user response via STT - now called AFTER TTS coordination is complete
+        This method no longer needs to handle TTS timing since that's done at session level
+        """
+        print("🔍 [DEBUG] Starting get_user_response (TTS should already be complete)")
         
         try:
             await self.websocket.send_json({
@@ -45,7 +31,7 @@ class WebSocketQuestionHandler:
             return ""
         
         for attempt in range(max_tries):
-            print(f"🔍 [DEBUG] Attempt {attempt + 1}")
+            print(f"🔍 [DEBUG] STT Attempt {attempt + 1}")
             
             if self.cancel_event.is_set():
                 print("🚨 [DEBUG] Cancel event already set before attempt - returning immediately")
@@ -116,7 +102,7 @@ class WebSocketQuestionHandler:
                             done, pending = await asyncio.wait(
                                 [stt_task, cancel_task],
                                 return_when=asyncio.FIRST_COMPLETED,
-                                timeout=1.0  # Add back reasonable timeout
+                                timeout=1.0  # Reasonable timeout
                             )
                             
                             # Cancel pending tasks

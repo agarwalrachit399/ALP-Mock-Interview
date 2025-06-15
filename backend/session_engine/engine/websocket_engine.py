@@ -2,6 +2,7 @@ import logging
 import random
 import json
 import os
+import uuid
 from datetime import datetime
 import asyncio
 from starlette.websockets import WebSocketState, WebSocketDisconnect
@@ -30,8 +31,11 @@ class WebSocketInterviewSession:
         self.cancel_event = asyncio.Event()
         self.question_handler = WebSocketQuestionHandler(websocket, tts_handler, self.cancel_event)
         self.session_id = None
-
-
+        
+        # TTS Coordination State
+        self.pending_questions = {}  # Track TTS completion for questions
+        self.tts_events = {}  # Store asyncio events for TTS completion
+        
     async def start(self):
         logging.info("WebSocket interview session started")
         await self.websocket.send_json({"type": "system", "text": "Interview started!", "session_id": self.session_manager.get_session_id()})
@@ -61,14 +65,19 @@ class WebSocketInterviewSession:
             logging.info("WebSocket interview session ended")
 
     async def _listen_for_messages(self):
-        """Listen for messages from frontend (like end command)"""
+        """Listen for messages from frontend (like end command and TTS signals)"""
         print("🔍 [DEBUG] Starting message listener")
         try:
             while not self.cancel_event.is_set():
                 message = await self.websocket.receive_json()
                 print(f"🔍 [DEBUG] Received message from frontend: {message}")
                 
-                if message.get("type") == "end_session":
+                # Handle TTS coordination messages
+                if message.get("type") == "tts_started":
+                    await self._handle_tts_started(message)
+                elif message.get("type") == "tts_completed":
+                    await self._handle_tts_completed(message)
+                elif message.get("type") == "end_session":
                     print("🚨 [DEBUG] End session command received from frontend!")
                     print("🚨 [DEBUG] Setting cancel event from message listener")
                     self.cancel_event.set()
@@ -83,6 +92,87 @@ class WebSocketInterviewSession:
             self.cancel_event.set()
         
         print("🔍 [DEBUG] Message listener ended")
+
+    async def _handle_tts_started(self, message):
+        """Handle TTS started signal from frontend"""
+        message_id = message.get("message_id")
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "tts_active"
+            print(f"🔊 [TTS] TTS started for message {message_id}")
+
+    async def _handle_tts_completed(self, message):
+        """Handle TTS completion signal from frontend"""
+        message_id = message.get("message_id")
+        error = message.get("error")
+        
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "tts_completed"
+            
+            if error:
+                print(f"🚨 [TTS] TTS error for message {message_id}: {error}")
+            else:
+                print(f"✅ [TTS] TTS completed for message {message_id}")
+            
+            # Signal waiting coroutine
+            if message_id in self.tts_events:
+                self.tts_events[message_id].set()
+
+    async def _wait_for_tts_completion(self, message_id, timeout=10):
+        """Wait for TTS completion signal with timeout"""
+        if message_id not in self.pending_questions:
+            print(f"⚠️ [TTS] Message {message_id} not in pending questions")
+            return
+        
+        # Create event for this message
+        event = asyncio.Event()
+        self.tts_events[message_id] = event
+        
+        try:
+            print(f"⏳ [TTS] Waiting for TTS completion of message {message_id} (timeout: {timeout}s)")
+            await asyncio.wait_for(event.wait(), timeout=timeout)
+            print(f"✅ [TTS] TTS completion confirmed for message {message_id}")
+        except asyncio.TimeoutError:
+            print(f"⏰ [TTS] TTS completion timeout for message {message_id} - proceeding anyway")
+            logging.warning(f"TTS completion timeout for {message_id}")
+        finally:
+            # Cleanup
+            if message_id in self.tts_events:
+                del self.tts_events[message_id]
+            if message_id in self.pending_questions:
+                del self.pending_questions[message_id]
+
+    async def ask_question_and_wait_for_response(self, question):
+        """Ask question with TTS coordination and get response"""
+        message_id = str(uuid.uuid4())
+        
+        print(f"🎤 [INTERVIEW] Asking question with coordination: {question[:50]}...")
+        
+        # Register question for TTS tracking
+        self.pending_questions[message_id] = {
+            "question": question,
+            "status": "tts_pending",
+            "timestamp": time.time()
+        }
+        
+        # Send question with tracking ID
+        await self.websocket.send_json({
+            "type": "question",
+            "text": question,
+            "message_id": message_id
+        })
+        
+        # Wait for TTS completion signal from frontend
+        await self._wait_for_tts_completion(message_id, timeout=10)
+        
+        # Only now signal frontend it's safe to start listening
+        await self.websocket.send_json({
+            "type": "start_listening"
+        })
+        
+        print("🎧 [INTERVIEW] TTS completed, now getting user response...")
+        
+        # Get user response via STT
+        return await self.question_handler.get_user_response()
 
     async def _monitor_disconnect(self):
         """Monitor WebSocket state and set cancel event when disconnected"""
@@ -108,7 +198,7 @@ class WebSocketInterviewSession:
         print("🔍 [DEBUG] Monitor disconnect loop ended")
 
     async def _run_interview(self):
-        """Main interview loop - moved from start() method"""
+        """Main interview loop with TTS coordination"""
         print("🔍 [DEBUG] Starting interview loop")
         self.session_manager.start_session()
         self.session_id = self.session_manager.get_session_id()
@@ -131,11 +221,10 @@ class WebSocketInterviewSession:
             # Check for cancellation before asking question
             if self.cancel_event.is_set():
                 break
-                
-            await self.question_handler.ask_question(main_question)
-
+            
+            # Use coordinated question asking
             while True:
-                main_answer = await self.question_handler.get_user_response()
+                main_answer = await self.ask_question_and_wait_for_response(main_question)
                 
                 # Check if cancelled during response
                 if self.cancel_event.is_set():
@@ -154,7 +243,7 @@ class WebSocketInterviewSession:
                     self.tts.speak("Please try to answer the question related to your experience.")
                 elif mod_status == "repeat":
                     self.tts.speak("Sure, let me repeat the question.")
-                    await self.question_handler.ask_question(main_question)
+                    # Continue loop to ask question again
                 elif mod_status == "change":
                     self.tts.speak("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.")
                 elif mod_status == "thinking":
@@ -187,14 +276,10 @@ class WebSocketInterviewSession:
                 
                 if self.cancel_event.is_set():
                     break
-                    
-                await self.websocket.send_json({
-                    "type": "question",
-                    "text": follow_up
-                })
-
+                
+                # Use coordinated question asking for follow-ups too
                 while True:
-                    user_answer = await self.question_handler.get_user_response()
+                    user_answer = await self.ask_question_and_wait_for_response(follow_up)
                     
                     if self.cancel_event.is_set():
                         return
@@ -211,7 +296,7 @@ class WebSocketInterviewSession:
                         self.tts.speak("Please answer the question based on your relevant experience.")
                     elif mod_status == "repeat":
                         self.tts.speak("Sure, let me repeat the question.")
-                        await self.question_handler.ask_question(follow_up)
+                        # Continue loop to ask question again
                     elif mod_status == "change":
                         self.tts.speak("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.")
                     elif mod_status == "thinking":
