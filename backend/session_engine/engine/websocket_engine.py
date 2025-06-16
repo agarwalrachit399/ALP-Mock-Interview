@@ -271,6 +271,7 @@ class WebSocketInterviewSession:
                 mod_status = self.moderator.moderate(main_question, main_answer)
 
                 if mod_status in ["abusive", "malicious"]:
+                    await self.speak_and_wait("Interview terminated due to inappropriate behavior.", "termination")
                     await self.websocket.send_json({"type": "terminate", "reason": "inappropriate"})
                     return
                 elif mod_status == "off_topic":
@@ -336,6 +337,7 @@ class WebSocketInterviewSession:
                     mod_status = self.moderator.moderate(follow_up, user_answer)
 
                     if mod_status in ["abusive", "malicious"]:
+                        await self.speak_and_wait("Interview terminated due to inappropriate behavior.", "termination")
                         await self.websocket.send_json({"type": "terminate", "reason": "inappropriate"})
                         return
                     elif mod_status == "off_topic":
@@ -366,6 +368,7 @@ class WebSocketInterviewSession:
 
         # Only send completion message if not cancelled
         if not self.cancel_event.is_set():
-            await self.websocket.send_json({"type": "complete", "text": "Thank you for your time. The interview session is now complete.","session_id": self.session_id })
+            await self.speak_and_wait("Thank you for your time. The interview session is now complete.", "completion")
+            await self.websocket.send_json({"type": "complete","session_id": self.session_id })
         
         logging.info("Interview loop completed")
