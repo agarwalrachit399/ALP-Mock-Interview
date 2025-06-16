@@ -7,12 +7,31 @@ import websockets
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 from session_engine.services.tts_handler import TTSHandler
+import uuid
+import time
 
 class WebSocketQuestionHandler:
     def __init__(self, websocket: WebSocket, tts: TTSHandler, cancel_event: asyncio.Event):
         self.websocket = websocket
         self.tts = tts
         self.cancel_event = cancel_event
+
+    async def speak_and_wait_simple(self, text, speech_type="retry"):
+        """Simple speech method for retry messages"""
+        message_id = str(uuid.uuid4())
+        
+        print(f"🔊 [RETRY] Speaking: {text[:50]}...")
+        
+        # Send to frontend
+        await self.websocket.send_json({
+            "type": "speech",
+            "text": text,
+            "speech_type": speech_type,
+            "message_id": message_id
+        })
+        
+        # Wait a bit for TTS to complete (simplified for retry messages)
+        await asyncio.sleep(3)
 
     async def get_user_response(self, max_tries: int = 2) -> str:
         """
@@ -180,18 +199,20 @@ class WebSocketQuestionHandler:
             if attempt < max_tries - 1:
                 logging.info(f"No response detected. Attempt {attempt + 1}/{max_tries}. Re-prompting user.")
                 try:
-                    self.tts.speak("Please share your thoughts when you're ready.")
+                    await self.speak_and_wait_simple("Please share your thoughts when you're ready.", "retry")
+                    await self.websocket.send_json({
+                        "type": "start_listening"
+                    })
                 except:
                     pass
         
         # Max retries reached
         logging.info("User did not respond after retries.")
         try:
-            await self.websocket.send_json({
-                "type": "system",
-                "text": "No response detected after multiple attempts."
-            })
-        except:
-            pass
+            await self.speak_and_wait_simple("No response detected after multiple attempts. Let's move on", "skip")
+            # Give a moment for TTS to complete before returning
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"Failed to send skip message: {e}")
         
         return ""

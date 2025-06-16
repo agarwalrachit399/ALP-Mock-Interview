@@ -248,15 +248,24 @@ class WebSocketInterviewSession:
                 break
             
             # Use coordinated question asking
+            main_answer = None
+            question_asked = False
             while True:
-                main_answer = await self.ask_question_and_wait_for_response(main_question)
+                if not question_asked:
+                    main_answer = await self.ask_question_and_wait_for_response(main_question)
+                    question_asked = True
+                else:
+                    # Just get user response without repeating question
+                    await self.websocket.send_json({"type": "start_listening"})
+                    main_answer = await self.question_handler.get_user_response()
                 
                 # Check if cancelled during response
                 if self.cancel_event.is_set():
                     return
                     
                 if not main_answer:
-                    await self.websocket.send_json({"type": "system", "text": "No answer. Skipping."})
+                    # await self.websocket.send_json({"type": "system", "text": "No answer. Skipping."})
+                    # main_answer = None
                     break
 
                 mod_status = self.moderator.moderate(main_question, main_answer)
@@ -266,15 +275,18 @@ class WebSocketInterviewSession:
                     return
                 elif mod_status == "off_topic":
                     await self.speak_and_wait("Please try to answer the question related to your experience.", "moderation")
+                    # Continue loop to get user response without repeating question
                 elif mod_status == "repeat":
                     await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
-                    # Continue loop to ask question again
+                    question_asked = False  # Reset flag to repeat question
                 elif mod_status == "change":
                     await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
+                    # Continue loop to get user response without repeating question
                 elif mod_status == "thinking":
                     await self.speak_and_wait("Sure, take a couple of minutes.", "moderation")
+                    # Continue loop to get user response without repeating question
                 else:
-                    break
+                    break  # Valid answer, proceed with interview
 
             if not main_answer or self.cancel_event.is_set():
                 continue
@@ -303,13 +315,22 @@ class WebSocketInterviewSession:
                     break
                 
                 # Use coordinated question asking for follow-ups too
+                user_answer = None
+                followup_asked = False
                 while True:
-                    user_answer = await self.ask_question_and_wait_for_response(follow_up)
+                    if not followup_asked:
+                        user_answer = await self.ask_question_and_wait_for_response(follow_up)
+                        followup_asked = True
+                    else:
+                        # Just get user response without repeating question
+                        await self.websocket.send_json({"type": "start_listening"})
+                        user_answer = await self.question_handler.get_user_response()
                     
                     if self.cancel_event.is_set():
                         return
                         
                     if not user_answer:
+                        user_answer = None
                         break
 
                     mod_status = self.moderator.moderate(follow_up, user_answer)
@@ -319,15 +340,18 @@ class WebSocketInterviewSession:
                         return
                     elif mod_status == "off_topic":
                         await self.speak_and_wait("Please answer the question based on your relevant experience.", "moderation")
+                        # Continue loop to get user response without repeating question
                     elif mod_status == "repeat":
                         await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
-                        # Continue loop to ask question again
+                        followup_asked = False  # Reset flag to repeat question
                     elif mod_status == "change":
                         await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
+                        # Continue loop to get user response without repeating question
                     elif mod_status == "thinking":
                         await self.speak_and_wait("Sure, take your time.", "moderation")
+                        # Continue loop to get user response without repeating question
                     else:
-                        break
+                        break  # Valid answer, proceed
 
                 if user_answer and not self.cancel_event.is_set():
                     followups.append({"question": follow_up, "answer": user_answer})
