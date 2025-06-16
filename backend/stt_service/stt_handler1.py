@@ -157,33 +157,58 @@ class STTTranscriber:
 
     def run_transcription(self):
         device_index, sample_rate = self.get_default_device()
-        stream = self.get_microphone_stream(device_index, sample_rate)
-
-        conn = ConnectionSettings(url=CONNECTION_URL, auth_token=API_KEY)
-        self.ws = speechmatics.client.WebsocketClient(conn)
-
-        conf = TranscriptionConfig(
-            language=LANGUAGE,
-            enable_partials=True,
-            max_delay=5,
-        )
-
-        audio_settings = AudioSettings(
-            encoding="pcm_f32le",
-            sample_rate=sample_rate,
-            chunk_size=CHUNK_SIZE,
-        )
-
-        self.ws.add_event_handler(ServerMessageType.AddPartialTranscript, self.on_partial)
-        self.ws.add_event_handler(ServerMessageType.AddTranscript, self.on_final)
-
+        stream = None
+        
         try:
-            self.ws.run_synchronously(self.audio_processor, conf, audio_settings)
-        except HTTPStatusError as e:
-            if e.response.status_code == 401:
-                print("Invalid API Key.")
-            else:
-                raise e
+            stream = self.get_microphone_stream(device_index, sample_rate)
+
+            conn = ConnectionSettings(url=CONNECTION_URL, auth_token=API_KEY)
+            self.ws = speechmatics.client.WebsocketClient(conn)
+
+            conf = TranscriptionConfig(
+                language=LANGUAGE,
+                enable_partials=True,
+                max_delay=5,
+            )
+
+            audio_settings = AudioSettings(
+                encoding="pcm_f32le",
+                sample_rate=sample_rate,
+                chunk_size=CHUNK_SIZE,
+            )
+
+            self.ws.add_event_handler(ServerMessageType.AddPartialTranscript, self.on_partial)
+            self.ws.add_event_handler(ServerMessageType.AddTranscript, self.on_final)
+
+            try:
+                self.ws.run_synchronously(self.audio_processor, conf, audio_settings)
+            except HTTPStatusError as e:
+                if e.response.status_code == 401:
+                    print("Invalid API Key.")
+                else:
+                    raise e
+                    
+        except Exception as e:
+            print(f"STT Transcription error: {e}")
+            return ""
+        finally:
+            # Cleanup resources
+            if stream:
+                try:
+                    stream.stop_stream()
+                    stream.close()
+                    print("🧹 [STT] PyAudio stream closed")
+                except Exception as e:
+                    print(f"Error closing audio stream: {e}")
+            
+            if hasattr(self, 'ws') and self.ws:
+                try:
+                    # Speechmatics client cleanup (if available)
+                    if hasattr(self.ws, 'close'):
+                        self.ws.close()
+                    print("🧹 [STT] Speechmatics WebSocket closed")
+                except Exception as e:
+                    print(f"Error closing Speechmatics connection: {e}")
 
         return self.transcript_final.strip()
 
