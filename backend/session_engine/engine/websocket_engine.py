@@ -1,11 +1,9 @@
 import logging
 import random
 import json
-import os
 import uuid
-from datetime import datetime
 import asyncio
-from starlette.websockets import WebSocketState, WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect
 from session_engine.config.constants import SESSION_DURATION_LIMIT, MIN_LP_QUESTIONS, FOLLOW_UP_COUNT, QUESTION_FILE
 from session_engine.engine.session_manager import SessionManager
 from session_engine.engine.lp_selector import LPSelector
@@ -15,7 +13,7 @@ from session_engine.custom_logging.logger import InteractionLogger
 from session_engine.handlers.ws_question_handler import WebSocketQuestionHandler
 from session_engine.services.tts_handler import TTSHandler
 import time
-
+import requests
 class WebSocketInterviewSession:
     def __init__(self, user_id: str, websocket, tts_handler: TTSHandler):
         self.user_id = user_id
@@ -35,7 +33,22 @@ class WebSocketInterviewSession:
         # TTS Coordination State
         self.pending_questions = {}  # Track TTS completion for questions
         self.tts_events = {}  # Store asyncio events for TTS completion
-        
+
+    async def cleanup_session_memory(self):
+        """Clean up session memory in the followup engine"""
+        try:
+            response = requests.post(
+                "http://localhost:8000/cleanup-session",
+                json={"session_id": self.session_id},
+                timeout=5
+            )
+            if response.status_code == 200:
+                print(f"✅ [CLEANUP] Session memory cleaned for {self.session_id}")
+            else:
+                print(f"⚠️ [CLEANUP] Failed to clean session memory: {response.status_code}")
+        except Exception as e:
+            print(f"⚠️ [CLEANUP] Error cleaning session memory: {e}")
+
     async def start(self):
         logging.info("WebSocket interview session started")
         await self.websocket.send_json({"type": "system", "text": "Interview started!", "session_id": self.session_manager.get_session_id()})
@@ -370,5 +383,7 @@ class WebSocketInterviewSession:
         if not self.cancel_event.is_set():
             await self.speak_and_wait("Thank you for your time. The interview session is now complete.", "completion")
             await self.websocket.send_json({"type": "complete","session_id": self.session_id })
+
+            await self.cleanup_session_memory()
         
         logging.info("Interview loop completed")

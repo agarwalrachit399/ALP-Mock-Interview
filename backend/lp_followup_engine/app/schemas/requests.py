@@ -15,3 +15,10 @@ class ShouldGenerateRequest(BaseModel):
     time_spent: int
     num_followups: int
     num_lp_questions: int
+
+class SessionCleanupRequest(BaseModel):
+    session_id: str
+
+class SessionCleanupResponse(BaseModel):
+    success: bool
+    message: str
