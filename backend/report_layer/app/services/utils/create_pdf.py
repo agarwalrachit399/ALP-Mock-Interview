@@ -24,7 +24,7 @@ def generate_pdf_from_json(reports: list[dict], output_path: str):
 
     story = []
 
-    story.append(Paragraph("Leadership Principles Interview Report", styles["Header"]))
+    story.append(Paragraph("Interview Report", styles["Header"]))
     story.append(Spacer(1, 12))
 
     for idx, data in enumerate(reports):

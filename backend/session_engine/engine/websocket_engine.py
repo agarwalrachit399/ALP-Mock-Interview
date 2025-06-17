@@ -130,7 +130,7 @@ class WebSocketInterviewSession:
             if message_id in self.tts_events:
                 self.tts_events[message_id].set()
 
-    async def _wait_for_tts_completion(self, message_id, timeout=10):
+    async def _wait_for_tts_completion(self, message_id, timeout=40):
         """Wait for TTS completion signal with timeout"""
         if message_id not in self.pending_questions:
             print(f"⚠️ [TTS] Message {message_id} not in pending questions")
@@ -177,7 +177,7 @@ class WebSocketInterviewSession:
         })
         
         # Wait for completion
-        await self._wait_for_tts_completion(message_id, timeout=10)
+        await self._wait_for_tts_completion(message_id, timeout=40)
 
     async def ask_question_and_wait_for_response(self, question):
         """Ask question with TTS coordination and get response"""
@@ -200,7 +200,7 @@ class WebSocketInterviewSession:
         })
         
         # Wait for TTS completion signal from frontend
-        await self._wait_for_tts_completion(message_id, timeout=10)
+        await self._wait_for_tts_completion(message_id, timeout=40)
         
         # Only now signal frontend it's safe to start listening
         await self.websocket.send_json({
@@ -235,12 +235,59 @@ class WebSocketInterviewSession:
                 
         print("🔍 [DEBUG] Monitor disconnect loop ended")
 
+    async def _run_intro(self):
+        """Run the introduction sequence before the main interview"""
+        print("🎤 [INTRO] Starting introduction sequence")
+        
+        # Check for cancellation before starting
+        if self.cancel_event.is_set():
+            return
+        
+        # Intro speech - using existing TTS coordination
+        
+        # Check for cancellation after intro speech
+        if self.cancel_event.is_set():
+            return
+        
+        # Get user introduction using existing question-response flow
+        # This automatically handles retries and STT coordination
+        user_intro = await self.ask_question_and_wait_for_response(
+            """"Hi there! My name is Aron, and I'll be your interviewer today.
+            In today's interview, I'll be asking you behavioral questions based on Amazon's leadership principles.
+            Each question may be followed by one or two follow ups depending on your responses.
+            To begin, could you briefly introduce yourself in two to three lines?"""
+        )
+        
+        # Check for cancellation after getting response
+        if self.cancel_event.is_set():
+            return
+        
+        # Acknowledgment speech (whether they responded or not)
+        if user_intro and user_intro.strip():
+            await self.speak_and_wait(
+                "Thanks for the introduction. It’s great to learn a bit about you. Let’s get started with the interview.",
+                "transition"
+            )
+            print(f"🎤 [INTRO] User introduction received: {user_intro[:50]}...")
+        else:
+            await self.speak_and_wait(
+                "Let's begin with the interview.",
+                "transition"
+            )
+            print("🎤 [INTRO] No introduction received, proceeding with interview")
+
+
     async def _run_interview(self):
         """Main interview loop with TTS coordination"""
         print("🔍 [DEBUG] Starting interview loop")
         self.session_manager.start_session()
         self.session_id = self.session_manager.get_session_id()
         followup_manager = FollowupManager(self.tts, self.session_id)
+
+        await self._run_intro()
+
+        if self.cancel_event.is_set():
+            return
 
         lp_asked = 0
 

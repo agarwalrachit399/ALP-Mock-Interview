@@ -73,7 +73,7 @@ class WebSocketQuestionHandler:
                     
                     # Send STT configuration
                     await stt_ws.send(json.dumps({
-                        "stop_duration": 4,
+                        "stop_duration": 2,
                         "max_wait": 90
                     }))
                     print("🔍 [DEBUG] STT config sent")
