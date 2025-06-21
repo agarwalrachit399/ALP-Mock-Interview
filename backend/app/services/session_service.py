@@ -67,6 +67,12 @@ class InteractionLogger:
     def log_lp_block(self, session_id: str, lp: str, main_question: str, main_answer: str, followups: list):
         """Log a complete LP block to database"""
         try:
+            from app.core.database import check_database_health, sessions_collection
+            
+            if not check_database_health():
+                logger.warning("⚠️ [DB] Database unavailable - LP block not logged")
+                return
+            
             doc = {
                 "session_id": session_id,
                 "user_id": self.user_id,
@@ -167,16 +173,30 @@ class AudioCoordinator:
             
             # Get user response via STT (direct service call!)
             cancel_event = threading.Event()
+
+            async def bridge_cancellation():
+                await self.websocket.cancel_event if hasattr(self.websocket, 'cancel_event') else asyncio.Event().wait()
+                cancel_event.set()
+                
+            bridge_task = asyncio.create_task(bridge_cancellation()) if hasattr(self, 'cancel_event') else None
             
             for attempt in range(max_tries):
                 logger.info(f"🎧 [STT] Listening for response (attempt {attempt + 1}/{max_tries})")
                 
                 # Direct STT service call - no WebSocket overhead!
-                transcript = await stt_service.transcribe_speech(
+                try: 
+                    transcript = await stt_service.transcribe_speech(
                     stop_duration=3,
                     max_wait=60,
                     cancel_event=cancel_event
                 )
+                finally:
+                    if bridge_task:
+                        bridge_task.cancel()
+                        try:
+                            await bridge_task
+                        except asyncio.CancelledError:
+                            pass
                 
                 if transcript and transcript.strip():
                     logger.info(f"✅ [STT] Got response: {transcript}")
@@ -242,16 +262,32 @@ class AudioCoordinator:
             
             # Get user response via STT (direct service call!)
             cancel_event = threading.Event()
+
+            bridge_task = None
+            if hasattr(self, 'session_cancel_event'):
+                async def bridge_cancellation():
+                    await self.session_cancel_event.wait()
+                    cancel_event.set()
+                    logger.info("🚨 [STT] Session cancelled - stopping STT")
+                bridge_task = asyncio.create_task(bridge_cancellation())
             
             for attempt in range(max_tries):
                 logger.info(f"🎧 [STT] Listening for response (attempt {attempt + 1}/{max_tries})")
                 
                 # Direct STT service call - no WebSocket overhead!
-                transcript = await stt_service.transcribe_speech(
+                try:
+                    transcript = await stt_service.transcribe_speech(
                     stop_duration=3,
                     max_wait=60,
                     cancel_event=cancel_event
                 )
+                finally:
+                    if bridge_task:
+                        bridge_task.cancel()
+                        try:
+                            await bridge_task
+                        except asyncio.CancelledError:
+                            pass
                 
                 if transcript and transcript.strip():
                     logger.info(f"✅ [STT] Got response: {transcript}")
@@ -328,7 +364,7 @@ class InterviewSessionService:
         
         # Load interview questions
         import os
-        questions_path = os.path.join(os.path.dirname(__file__), "..", "data", "questions.json")
+        questions_path = os.path.join(os.path.dirname(__file__), "..", "..", "questions.json")
         try:
             with open(questions_path, "r") as f:
                 self.lp_questions = json.load(f)
@@ -347,6 +383,7 @@ class InterviewSessionService:
         self.logger = InteractionLogger(user_id)
         self.audio_coordinator = AudioCoordinator(websocket)
         self.cancel_event = asyncio.Event()
+        self.audio_coordinator.session_cancel_event = self.cancel_event
         
         # Session state
         self.session_id = self.session_manager.get_session_id()
@@ -468,10 +505,7 @@ class InterviewSessionService:
             return
             
         intro_text = (
-            "Hi there! My name is Aron, and I'll be your interviewer today. "
-            "In today's interview, I'll be asking you behavioral questions based on Amazon's leadership principles. "
-            "Each question may be followed by one or two follow ups depending on your responses. "
-            "To begin, could you briefly introduce yourself in two to three lines?"
+            "Hi there! My name is Aron, and I'll be your interviewer today."
         )
         
         user_intro = await self.audio_coordinator.ask_question_and_get_response(intro_text)

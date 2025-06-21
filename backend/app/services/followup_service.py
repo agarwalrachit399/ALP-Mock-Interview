@@ -14,7 +14,13 @@ class GeminiClient:
     def __init__(self, model="gemini-2.0-flash", temperature=0.7):
         self.model = model
         self.temperature = temperature
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY not configured")
+        
+        try:
+            self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        except Exception as e:
+            raise ValueError(f"Failed to initialize Gemini client: {e}")
 
     def generate_stream(self, prompt: str) -> str:
         """Generate followup question"""

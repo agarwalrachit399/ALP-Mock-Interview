@@ -214,8 +214,8 @@ class TTSService:
             return None
             
         if not settings.RIME_API_KEY:
-            logger.error("RIME_API_KEY not configured")
-            return None
+            logger.error("❌ [TTS] RIME_API_KEY not configured")
+            raise ValueError("Rime API key is required for speech generation")
             
         # Use provided config or default
         tts_config = config or self.default_config

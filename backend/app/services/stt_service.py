@@ -137,24 +137,23 @@ class STTTranscriber:
         rate = int(p.get_device_info_by_index(default_index)['defaultSampleRate'])
         return default_index, self.sample_rate
 
-    def get_microphone_stream(self, device_index, sample_rate):
-        p = pyaudio.PyAudio()
-        return p.open(
-            format=pyaudio.paFloat32,
-            channels=1,
-            rate=sample_rate,
-            input=True,
-            frames_per_buffer=CHUNK_SIZE,
-            input_device_index=device_index,
-            stream_callback=self.stream_callback
-        )
-
     def run_transcription(self):
         device_index, sample_rate = self.get_default_device()
         stream = None
+        p = None  # Add PyAudio object tracking
         
         try:
-            stream = self.get_microphone_stream(device_index, sample_rate)
+            # Initialize PyAudio with proper tracking
+            p = pyaudio.PyAudio()
+            stream = p.open(
+                format=pyaudio.paFloat32,
+                channels=1,
+                rate=sample_rate,
+                input=True,
+                frames_per_buffer=CHUNK_SIZE,
+                input_device_index=device_index,
+                stream_callback=self.stream_callback
+            )
 
             # Use API key from settings
             connection_url = f"wss://eu2.rt.speechmatics.com/v2/en"
@@ -189,25 +188,123 @@ class STTTranscriber:
             print(f"STT Transcription error: {e}")
             return ""
         finally:
-            # Cleanup resources
-            if stream:
-                try:
-                    stream.stop_stream()
-                    stream.close()
-                    print("🧹 [STT] PyAudio stream closed")
-                except Exception as e:
-                    print(f"Error closing audio stream: {e}")
-            
-            if hasattr(self, 'ws') and self.ws:
-                try:
-                    # Speechmatics client cleanup (if available)
-                    if hasattr(self.ws, 'close'):
-                        self.ws.close()
-                    print("🧹 [STT] Speechmatics WebSocket closed")
-                except Exception as e:
-                    print(f"Error closing Speechmatics connection: {e}")
+            # ENHANCED CLEANUP - Fix resource leaks
+            self._cleanup_resources(stream, p)
 
         return self.transcript_final.strip()
+
+    def _cleanup_resources(self, stream, p):
+        """Comprehensive resource cleanup"""
+        print("🧹 [STT] Starting comprehensive resource cleanup...")
+        
+        # 1. Stop and close PyAudio stream
+        if stream:
+            try:
+                if stream.is_active():
+                    stream.stop_stream()
+                    print("🧹 [STT] PyAudio stream stopped")
+            except Exception as e:
+                print(f"Error stopping audio stream: {e}")
+            
+            try:
+                stream.close()
+                print("🧹 [STT] PyAudio stream closed")
+            except Exception as e:
+                print(f"Error closing audio stream: {e}")
+        
+        # 2. Terminate PyAudio instance (CRITICAL - was missing)
+        if p:
+            try:
+                p.terminate()
+                print("🧹 [STT] PyAudio terminated")
+            except Exception as e:
+                print(f"Error terminating PyAudio: {e}")
+        
+        # 3. Force close Speechmatics WebSocket connection
+        if hasattr(self, 'ws') and self.ws:
+            try:
+                # Force close the connection
+                if hasattr(self.ws, '_client') and self.ws._client:
+                    # Close underlying websocket if accessible
+                    if hasattr(self.ws._client, 'close'):
+                        self.ws._client.close()
+                
+                # Set stop flag to ensure transcription stops
+                self.stop_transcription = True
+                print("🧹 [STT] Speechmatics WebSocket closed")
+            except Exception as e:
+                print(f"Error closing Speechmatics connection: {e}")
+            finally:
+                self.ws = None
+        
+        # 4. Clear audio processor data to free memory
+        if hasattr(self, 'audio_processor'):
+            try:
+                self.audio_processor.wave_data.clear()
+                self.audio_processor.finish()
+                print("🧹 [STT] Audio processor cleared")
+            except Exception as e:
+                print(f"Error clearing audio processor: {e}")
+        
+        print("🧹 [STT] Resource cleanup completed")
+
+    def _cleanup_resources(self, stream, p):
+        """Comprehensive resource cleanup"""
+        print("🧹 [STT] Starting comprehensive resource cleanup...")
+        
+        # 1. Stop and close PyAudio stream
+        if stream:
+            try:
+                if stream.is_active():
+                    stream.stop_stream()
+                    print("🧹 [STT] PyAudio stream stopped")
+            except Exception as e:
+                print(f"Error stopping audio stream: {e}")
+            
+            try:
+                stream.close()
+                print("🧹 [STT] PyAudio stream closed")
+            except Exception as e:
+                print(f"Error closing audio stream: {e}")
+        
+        # 2. Terminate PyAudio instance (CRITICAL - was missing)
+        if p:
+            try:
+                p.terminate()
+                print("🧹 [STT] PyAudio terminated")
+            except Exception as e:
+                print(f"Error terminating PyAudio: {e}")
+        
+        # 3. Force close Speechmatics WebSocket connection
+        if hasattr(self, 'ws') and self.ws:
+            try:
+                # Force close the connection
+                if hasattr(self.ws, '_client') and self.ws._client:
+                    # Close underlying websocket if accessible
+                    if hasattr(self.ws._client, 'close'):
+                        self.ws._client.close()
+                
+                # Set stop flag to ensure transcription stops
+                self.stop_transcription = True
+                print("🧹 [STT] Speechmatics WebSocket closed")
+            except Exception as e:
+                print(f"Error closing Speechmatics connection: {e}")
+            finally:
+                self.ws = None
+        
+        # 4. Clear audio processor data to free memory
+        if hasattr(self, 'audio_processor'):
+            try:
+                self.audio_processor.wave_data.clear()
+                self.audio_processor.finish()
+                print("🧹 [STT] Audio processor cleared")
+            except Exception as e:
+                print(f"Error clearing audio processor: {e}")
+        
+        print("🧹 [STT] Resource cleanup completed")
+
+
+
 
 class STTService:
     """Speech-to-Text service for the monolith"""
@@ -215,26 +312,22 @@ class STTService:
     def __init__(self):
         self.active_transcriptions = {}  # Track active transcription sessions
     
+    # In STTService.transcribe_speech() method, add timeout protection:
+
     async def transcribe_speech(self, stop_duration: int = 4, max_wait: int = 10, 
-                               cancel_event: Optional[threading.Event] = None) -> str:
+                            cancel_event: Optional[threading.Event] = None) -> str:
         """
-        Transcribe speech from microphone
-        
-        Args:
-            stop_duration: Seconds of silence before stopping
-            max_wait: Maximum seconds to wait for speech
-            cancel_event: Threading event to cancel transcription
-            
-        Returns:
-            Transcribed text or empty string if cancelled/failed
+        Transcribe speech from microphone with resource leak protection
         """
         print(f"🎤 [STT] Starting transcription (stop: {stop_duration}s, max_wait: {max_wait}s)")
         
         if not settings.SPEECHMATICS_API_KEY:
             print("❌ [STT] SPEECHMATICS_API_KEY not configured")
-            return ""
+            raise ValueError("Speechmatics API key is required for speech transcription")
         
-        # Run transcription in executor to avoid blocking
+        # Add overall timeout to prevent infinite hangs
+        overall_timeout = max_wait + stop_duration + 30  # Extra buffer
+        
         loop = asyncio.get_event_loop()
         
         try:
@@ -245,15 +338,21 @@ class STTService:
                 cancel_event=cancel_event
             )
             
-            # Run transcription in thread pool
-            transcript = await loop.run_in_executor(
-                None, 
-                transcriber.run_transcription
+            # Run with timeout protection
+            transcript = await asyncio.wait_for(
+                loop.run_in_executor(None, transcriber.run_transcription),
+                timeout=overall_timeout
             )
             
             print(f"🎤 [STT] Transcription completed: '{transcript}'")
             return transcript
             
+        except asyncio.TimeoutError:
+            print(f"⏰ [STT] Transcription timed out after {overall_timeout}s - forcing cleanup")
+            # Force cleanup by setting cancel event
+            if cancel_event:
+                cancel_event.set()
+            return ""
         except Exception as e:
             print(f"❌ [STT] Transcription error: {e}")
             return ""
