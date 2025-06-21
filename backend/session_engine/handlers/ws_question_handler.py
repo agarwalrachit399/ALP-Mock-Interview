@@ -1,4 +1,4 @@
-# session_engine/handlers/ws_question_handler.py
+# backend/session_engine/handlers/ws_question_handler.py
 
 import logging
 import json
@@ -6,32 +6,44 @@ import asyncio
 import websockets
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
-from session_engine.services.tts_handler import TTSHandler
+from session_engine.services.tts_handler import RimeTTSHandler  # Updated import
 import uuid
 import time
 
 class WebSocketQuestionHandler:
-    def __init__(self, websocket: WebSocket, tts: TTSHandler, cancel_event: asyncio.Event):
+    def __init__(self, websocket: WebSocket, tts: RimeTTSHandler, cancel_event: asyncio.Event):
         self.websocket = websocket
         self.tts = tts
         self.cancel_event = cancel_event
 
     async def speak_and_wait_simple(self, text, speech_type="retry"):
-        """Simple speech method for retry messages"""
+        """Simple speech method for retry messages using hybrid TTS (Rime + Browser fallback)"""
         message_id = str(uuid.uuid4())
         
-        print(f"🔊 [RETRY] Speaking: {text[:50]}...")
+        print(f"🔊 [RETRY] Speaking with hybrid TTS: {text[:50]}...")
         
-        # Send to frontend
-        await self.websocket.send_json({
-            "type": "speech",
-            "text": text,
-            "speech_type": speech_type,
-            "message_id": message_id
-        })
-        
-        # Wait a bit for TTS to complete (simplified for retry messages)
-        await asyncio.sleep(3)
+        try:
+            # Use the hybrid TTS handler (will send both display message and attempt Rime audio)
+            await self.tts.speak_and_stream(self.websocket, text, message_id, speech_type)
+            
+            # Wait longer for hybrid TTS to complete (could be Rime audio generation + playback or browser TTS)
+            await asyncio.sleep(5)  # Increased to account for both Rime and browser TTS possibilities
+            
+        except Exception as e:
+            print(f"🚨 [RETRY] Hybrid TTS error, sending direct browser TTS fallback: {e}")
+            # Final fallback: send text directly to frontend for browser TTS
+            try:
+                await self.websocket.send_json({
+                    "type": "speech",
+                    "text": text,
+                    "speech_type": speech_type,
+                    "message_id": message_id,
+                    "fallback": True,  # Flag to indicate this should definitely use browser TTS
+                    "has_rime_audio": False  # Explicitly disable Rime audio waiting
+                })
+                await asyncio.sleep(3)  # Wait for browser TTS to complete
+            except Exception as fallback_error:
+                print(f"🚨 [RETRY] Even final fallback failed: {fallback_error}")
 
     async def get_user_response(self, max_tries: int = 2) -> str:
         """
@@ -199,19 +211,21 @@ class WebSocketQuestionHandler:
             if attempt < max_tries - 1:
                 logging.info(f"No response detected. Attempt {attempt + 1}/{max_tries}. Re-prompting user.")
                 try:
+                    # Use hybrid TTS for retry messages
                     await self.speak_and_wait_simple("Please share your thoughts when you're ready.", "retry")
                     await self.websocket.send_json({
                         "type": "start_listening"
                     })
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Failed to send retry message: {e}")
         
         # Max retries reached
         logging.info("User did not respond after retries.")
         try:
+            # Use hybrid TTS for skip message too
             await self.speak_and_wait_simple("No response detected after multiple attempts. Let's move on", "skip")
-            # Give a moment for TTS to complete before returning
-            await asyncio.sleep(1)
+            # Give more time for hybrid TTS to complete (either Rime or browser)
+            await asyncio.sleep(3)
         except Exception as e:
             print(f"Failed to send skip message: {e}")
         

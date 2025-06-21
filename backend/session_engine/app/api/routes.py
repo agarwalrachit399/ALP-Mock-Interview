@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, Depends, WebSocketDisconnect, Query
 from session_engine.engine.websocket_engine import WebSocketInterviewSession
-from session_engine.services.tts_handler import TTSHandler
+from session_engine.services.tts_handler import RimeTTSHandler  # Updated import
 import jwt
 from jwt import ExpiredSignatureError, PyJWTError
 from auth_service.app.core import config
@@ -43,12 +43,12 @@ async def websocket_interview(websocket: WebSocket, token: str = Query(...)):
     
     await websocket.accept()
     
-    # Initialize TTS handler and enhanced session with TTS coordination
-    tts_handler = TTSHandler()
-    session = WebSocketInterviewSession(user_id=user_id, websocket=websocket, tts_handler=tts_handler)
+    # Initialize Rime TTS handler and enhanced session with TTS coordination
+    rime_tts_handler = RimeTTSHandler()
+    session = WebSocketInterviewSession(user_id=user_id, websocket=websocket, tts_handler=rime_tts_handler)
     
     try:
-        print(f"🎤 [SESSION] Starting coordinated interview session for user {user_id}")
+        print(f"🎤 [SESSION] Starting coordinated interview session with Rime TTS for user {user_id}")
         await session.start()
     except WebSocketDisconnect:
         print("Client disconnected")

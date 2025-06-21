@@ -1,3 +1,4 @@
+# backend/session_engine/engine/websocket_engine.py
 import logging
 import random
 import json
@@ -11,11 +12,12 @@ from session_engine.services.moderation_service import ModerationService
 from session_engine.services.followup_manager import FollowupManager
 from session_engine.custom_logging.logger import InteractionLogger
 from session_engine.handlers.ws_question_handler import WebSocketQuestionHandler
-from session_engine.services.tts_handler import TTSHandler
+from session_engine.services.tts_handler import RimeTTSHandler  # Updated import
 import time
 import requests
+
 class WebSocketInterviewSession:
-    def __init__(self, user_id: str, websocket, tts_handler: TTSHandler):
+    def __init__(self, user_id: str, websocket, tts_handler: RimeTTSHandler):
         self.user_id = user_id
         self.websocket = websocket
         self.tts = tts_handler
@@ -30,7 +32,7 @@ class WebSocketInterviewSession:
         self.question_handler = WebSocketQuestionHandler(websocket, tts_handler, self.cancel_event)
         self.session_id = None
         
-        # TTS Coordination State
+        # TTS Coordination State (keeping existing system)
         self.pending_questions = {}  # Track TTS completion for questions
         self.tts_events = {}  # Store asyncio events for TTS completion
 
@@ -75,6 +77,8 @@ class WebSocketInterviewSession:
         except Exception as e:
             logging.error(f"Session error: {e}")
         finally:
+            # Close TTS connection
+            await self.tts.close()
             logging.info("WebSocket interview session ended")
 
     async def _listen_for_messages(self):
@@ -85,11 +89,19 @@ class WebSocketInterviewSession:
                 message = await self.websocket.receive_json()
                 print(f"🔍 [DEBUG] Received message from frontend: {message}")
                 
-                # Handle TTS coordination messages
+                # Handle TTS coordination messages - UPDATED for Rime TTS
                 if message.get("type") == "tts_started":
                     await self._handle_tts_started(message)
-                elif message.get("type") == "tts_completed":
+                elif message.get("type") == "tts_completed":  # Frontend finished playing audio
                     await self._handle_tts_completed(message)
+                elif message.get("type") == "tts_error":
+                    await self._handle_tts_error(message)
+                elif message.get("type") == "audio_playback_started":  # New: frontend started playing audio
+                    await self._handle_audio_playback_started(message)
+                elif message.get("type") == "audio_playback_completed":  # New: frontend finished playing audio  
+                    await self._handle_audio_playback_completed(message)
+                elif message.get("type") == "audio_playback_error":  # New: frontend audio playback error
+                    await self._handle_audio_playback_error(message)
                 elif message.get("type") == "end_session":
                     print("🚨 [DEBUG] End session command received from frontend!")
                     print("🚨 [DEBUG] Setting cancel event from message listener")
@@ -107,14 +119,14 @@ class WebSocketInterviewSession:
         print("🔍 [DEBUG] Message listener ended")
 
     async def _handle_tts_started(self, message):
-        """Handle TTS started signal from frontend"""
+        """Handle TTS started signal from frontend (legacy browser TTS)"""
         message_id = message.get("message_id")
         if message_id and message_id in self.pending_questions:
             self.pending_questions[message_id]["status"] = "tts_active"
-            print(f"🔊 [TTS] TTS started for message {message_id}")
+            print(f"🔊 [TTS] Legacy TTS started for message {message_id}")
 
     async def _handle_tts_completed(self, message):
-        """Handle TTS completion signal from frontend"""
+        """Handle TTS completion signal from frontend (legacy browser TTS)"""
         message_id = message.get("message_id")
         error = message.get("error")
         
@@ -122,16 +134,66 @@ class WebSocketInterviewSession:
             self.pending_questions[message_id]["status"] = "tts_completed"
             
             if error:
-                print(f"🚨 [TTS] TTS error for message {message_id}: {error}")
+                print(f"🚨 [TTS] Legacy TTS error for message {message_id}: {error}")
             else:
-                print(f"✅ [TTS] TTS completed for message {message_id}")
+                print(f"✅ [TTS] Legacy TTS completed for message {message_id}")
+            
+            # Signal waiting coroutine
+            if message_id in self.tts_events:
+                self.tts_events[message_id].set()
+
+    async def _handle_audio_playback_started(self, message):
+        """Handle audio playback started signal from frontend (Rime TTS)"""
+        message_id = message.get("message_id")
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "audio_playing"
+            print(f"🔊 [AUDIO] Audio playback started for message {message_id}")
+
+    async def _handle_audio_playback_completed(self, message):
+        """Handle audio playback completion signal from frontend (Rime TTS)"""
+        message_id = message.get("message_id")
+        error = message.get("error")
+        
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "audio_completed"
+            
+            if error:
+                print(f"🚨 [AUDIO] Audio playback error for message {message_id}: {error}")
+            else:
+                print(f"✅ [AUDIO] Audio playback completed for message {message_id}")
+            
+            # Signal waiting coroutine
+            if message_id in self.tts_events:
+                self.tts_events[message_id].set()
+
+    async def _handle_audio_playback_error(self, message):
+        """Handle audio playback error signal from frontend"""
+        message_id = message.get("message_id")
+        error = message.get("error", "Unknown audio error")
+        
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "audio_error"
+            print(f"🚨 [AUDIO] Audio playback error for message {message_id}: {error}")
+            
+            # Signal waiting coroutine
+            if message_id in self.tts_events:
+                self.tts_events[message_id].set()
+
+    async def _handle_tts_error(self, message):
+        """Handle TTS error signal from frontend"""
+        message_id = message.get("message_id")
+        error = message.get("error", "Unknown TTS error")
+        
+        if message_id and message_id in self.pending_questions:
+            self.pending_questions[message_id]["status"] = "tts_error"
+            print(f"🚨 [TTS] TTS error for message {message_id}: {error}")
             
             # Signal waiting coroutine
             if message_id in self.tts_events:
                 self.tts_events[message_id].set()
 
     async def _wait_for_tts_completion(self, message_id, timeout=40):
-        """Wait for TTS completion signal with timeout"""
+        """Wait for TTS completion signal with timeout (handles both browser TTS and Rime TTS)"""
         if message_id not in self.pending_questions:
             print(f"⚠️ [TTS] Message {message_id} not in pending questions")
             return
@@ -143,7 +205,16 @@ class WebSocketInterviewSession:
         try:
             print(f"⏳ [TTS] Waiting for TTS completion of message {message_id} (timeout: {timeout}s)")
             await asyncio.wait_for(event.wait(), timeout=timeout)
-            print(f"✅ [TTS] TTS completion confirmed for message {message_id}")
+            
+            # Check final status to see which TTS method was used
+            final_status = self.pending_questions[message_id].get("status", "unknown")
+            if final_status == "tts_completed":
+                print(f"✅ [BROWSER TTS] Browser TTS completion confirmed for message {message_id}")
+            elif final_status == "audio_completed":
+                print(f"✅ [RIME TTS] Rime TTS completion confirmed for message {message_id}")
+            else:
+                print(f"✅ [TTS] TTS completion confirmed for message {message_id} (status: {final_status})")
+                
         except asyncio.TimeoutError:
             print(f"⏰ [TTS] TTS completion timeout for message {message_id} - proceeding anyway")
             logging.warning(f"TTS completion timeout for {message_id}")
@@ -155,12 +226,12 @@ class WebSocketInterviewSession:
                 del self.pending_questions[message_id]
 
     async def speak_and_wait(self, text, speech_type="system"):
-        """Send speech message to frontend and wait for TTS completion"""
+        """Send speech message to Rime TTS and wait for completion"""
         message_id = str(uuid.uuid4())
         
-        print(f"🔊 [SPEECH] Sending {speech_type} speech: {text[:50]}...")
+        print(f"🔊 [SPEECH] Sending {speech_type} speech to Rime TTS: {text[:50]}...")
         
-        # Register for TTS tracking
+        # Register for TTS tracking (keep existing logic)
         self.pending_questions[message_id] = {
             "text": text,
             "type": speech_type,
@@ -168,22 +239,26 @@ class WebSocketInterviewSession:
             "timestamp": time.time()
         }
         
-        # Send to frontend
-        await self.websocket.send_json({
-            "type": "speech",
-            "text": text,
-            "speech_type": speech_type,
-            "message_id": message_id
-        })
+        # Use Rime TTS handler instead of direct websocket send
+        try:
+            await self.tts.speak_and_stream(self.websocket, text, message_id, speech_type)
+        except Exception as e:
+            print(f"🚨 [TTS] Error with Rime TTS: {e}")
+            # Fallback: send error to frontend
+            await self.websocket.send_json({
+                "type": "tts_error",
+                "message_id": message_id,
+                "error": str(e)
+            })
         
-        # Wait for completion
+        # Wait for completion (keep existing logic)
         await self._wait_for_tts_completion(message_id, timeout=40)
 
     async def ask_question_and_wait_for_response(self, question):
         """Ask question with TTS coordination and get response"""
         message_id = str(uuid.uuid4())
         
-        print(f"🎤 [INTERVIEW] Asking question with coordination: {question[:50]}...")
+        print(f"🎤 [INTERVIEW] Asking question with Rime TTS coordination: {question[:50]}...")
         
         # Register question for TTS tracking
         self.pending_questions[message_id] = {
@@ -192,12 +267,17 @@ class WebSocketInterviewSession:
             "timestamp": time.time()
         }
         
-        # Send question with tracking ID
-        await self.websocket.send_json({
-            "type": "question",
-            "text": question,
-            "message_id": message_id
-        })
+        # Send question to Rime TTS with tracking ID
+        try:
+            await self.tts.speak_and_stream(self.websocket, question, message_id, "question")
+        except Exception as e:
+            print(f"🚨 [TTS] Error generating question audio: {e}")
+            # Fallback: send text question directly
+            await self.websocket.send_json({
+                "type": "question",
+                "text": question,
+                "message_id": message_id
+            })
         
         # Wait for TTS completion signal from frontend
         await self._wait_for_tts_completion(message_id, timeout=40)
@@ -243,8 +323,6 @@ class WebSocketInterviewSession:
         if self.cancel_event.is_set():
             return
         
-        # Intro speech - using existing TTS coordination
-        
         # Check for cancellation after intro speech
         if self.cancel_event.is_set():
             return
@@ -265,7 +343,7 @@ class WebSocketInterviewSession:
         # Acknowledgment speech (whether they responded or not)
         if user_intro and user_intro.strip():
             await self.speak_and_wait(
-                "Thanks for the introduction. It’s great to learn a bit about you. Let’s get started with the interview.",
+                "Thanks for the introduction. It's great to learn a bit about you. Let's get started with the interview.",
                 "transition"
             )
             print(f"🎤 [INTRO] User introduction received: {user_intro[:50]}...")
@@ -276,9 +354,8 @@ class WebSocketInterviewSession:
             )
             print("🎤 [INTRO] No introduction received, proceeding with interview")
 
-
     async def _run_interview(self):
-        """Main interview loop with TTS coordination"""
+        """Main interview loop with Rime TTS coordination"""
         print("🔍 [DEBUG] Starting interview loop")
         self.session_manager.start_session()
         self.session_id = self.session_manager.get_session_id()
@@ -324,8 +401,6 @@ class WebSocketInterviewSession:
                     return
                     
                 if not main_answer:
-                    # await self.websocket.send_json({"type": "system", "text": "No answer. Skipping."})
-                    # main_answer = None
                     break
 
                 mod_status = self.moderator.moderate(main_question, main_answer)
@@ -336,16 +411,13 @@ class WebSocketInterviewSession:
                     return
                 elif mod_status == "off_topic":
                     await self.speak_and_wait("Please try to answer the question related to your experience.", "moderation")
-                    # Continue loop to get user response without repeating question
                 elif mod_status == "repeat":
                     await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
                     question_asked = False  # Reset flag to repeat question
                 elif mod_status == "change":
                     await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
-                    # Continue loop to get user response without repeating question
                 elif mod_status == "thinking":
                     await self.speak_and_wait("Sure, take a couple of minutes.", "moderation")
-                    # Continue loop to get user response without repeating question
                 else:
                     break  # Valid answer, proceed with interview
 
@@ -402,16 +474,13 @@ class WebSocketInterviewSession:
                         return
                     elif mod_status == "off_topic":
                         await self.speak_and_wait("Please answer the question based on your relevant experience.", "moderation")
-                        # Continue loop to get user response without repeating question
                     elif mod_status == "repeat":
                         await self.speak_and_wait("Sure, let me repeat the question.", "moderation")
                         followup_asked = False  # Reset flag to repeat question
                     elif mod_status == "change":
                         await self.speak_and_wait("Unfortunately, we can't change the question, but feel free to use any academic, co-curricular, or personal experiences to answer it.", "moderation")
-                        # Continue loop to get user response without repeating question
                     elif mod_status == "thinking":
                         await self.speak_and_wait("Sure, take your time.", "moderation")
-                        # Continue loop to get user response without repeating question
                     else:
                         break  # Valid answer, proceed
 
